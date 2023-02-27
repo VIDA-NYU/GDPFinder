@@ -1,14 +1,16 @@
 import geopandas as gpd
 from tqdm import tqdm
 import sys
+from time import time
+import logging
 
 sys.path.append("m2m-api/")
 from api import M2M
 
 
 def connect_to_m2m_api():
-    username = # add your credentials
-    password = # add your credentials
+    username = ""  # add your credentials
+    password = ""  # add your credentials
     m2m = M2M(username, password)
     return m2m
 
@@ -25,22 +27,66 @@ def clean_dir_name(name):
 
 def download_data_test():
     """Download some scenes from the smallest MSA"""
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
     msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
     msa_shp["area"] = msa_shp["geometry"].area
     msa_shp = msa_shp.sort_values("area")
     print("Smallest metropolitan area:", msa_shp.iloc[0]["NAME"])
-
     m2m = connect_to_m2m_api()
     # config search
     search_params = {
-        "datasetName": "naip",
+        "datasetName": "high_res_ortho",
         "geoJsonType": "Polygon",
         "geoJsonCoords": [list(msa_shp.iloc[0]["geometry"].exterior.coords)],
-        "maxResults": 3,
+        "maxResults": 10,
     }
+
     download_dir = clean_dir_name(msa_shp.iloc[0]["NAME"])
     scenes = m2m.searchScenes(**search_params)
-    downloadMetadata = m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
+    start = time()
+    downloadMetadata = m2m.retrieveScenes(
+        "high_res_ortho", scenes, download_dir=download_dir
+    )
+    end = time()
+
+    print(f"Downloaded {len(downloadMetadata)} scenes in {end - start:.2f} seconds")
+
+
+def download_latest_ny():
+    """Download the lastest scens for New York"""
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
+    msa_shp = gpd.read_file("../data/CityBoundaries.shp")
+    msa_shp = msa_shp[msa_shp.NAME == "New York"]
+    msa_shp = msa_shp.to_crs("EPSG:4326")
+
+    m2m = connect_to_m2m_api()
+
+    for p in msa_shp.iloc[0]["geometry"].geoms:
+        coords = [list(p.exterior.coords)]
+        # config search
+        search_params = {
+            "datasetName": "high_res_ortho",
+            "geoJsonType": "Polygon",
+            "geoJsonCoords": coords,
+            "maxResults": 49999,
+            "startDate": "2014-01-01",
+            "endDate": "2014-12-31",
+        }
+
+        download_dir = clean_dir_name(msa_shp.iloc[0]["NAME"])
+        scenes = m2m.searchScenes(**search_params)
+
+        start = time()
+        downloadMetadata = m2m.retrieveScenes(
+            "high_res_ortho", scenes, download_dir=download_dir
+        )
+        end = time()
 
 
 def download_data():
@@ -88,5 +134,6 @@ def estimate_size():
 
 
 if __name__ == "__main__":
-    download_data_test()
+    # download_data_test()
     # estimate_size()
+    download_latest_ny()
