@@ -57,6 +57,50 @@ def download_data_test():
     print(f"Downloaded {len(downloadMetadata)} scenes in {end - start:.2f} seconds")
 
 
+def download_data():
+    """Download scenes from all MSA"""
+    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
+    m2m = connect_to_m2m_api()
+
+    for i, row in tqdm(msa_shp.iterrows()):
+        print(f"Download data from {row['NAME']}")
+        # config search
+        search_params = {
+            "datasetName": "naip",
+            "geoJsonType": "Polygon",
+            "geoJsonCoords": [list(row["geometry"].exterior.coords)],
+            "maxResults": 20,
+        }
+        download_dir = clean_dir_name(row["NAME"])
+        scenes = m2m.searchScenes(**search_params)
+        downloadMetadata = m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
+
+
+def estimate_size():
+    """Count the number of scenes and estimate the storage size"""
+    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
+    m2m = connect_to_m2m_api()
+    total_scenes = 0
+    for i, row in msa_shp.iterrows():
+        try:
+            # config search
+            search_params = {
+                "datasetName": "naip",
+                "geoJsonType": "Polygon",
+                "geoJsonCoords": [list(row["geometry"].exterior.coords)],
+                "maxResults": 3,
+            }
+            scenes = m2m.searchScenes(**search_params)
+            total_scenes += scenes["totalHits"]
+            print(f"MSA {row['NAME']} has {scenes['totalHits']} scenes")
+        except:
+            print(f"Error with MSA {row['NAME']}")
+
+    mb_by_scene = 400
+    print(f"Total scenes: {total_scenes}")
+    print(f"Total size: {(total_scenes * mb_by_scene)/ 1e6} TB")
+
+
 def search_all_scenes_ny():
     """Download the lastest scens for New York"""
     logging.basicConfig(
@@ -121,8 +165,12 @@ def search_all_scenes_ny():
         lambda x: Polygon(x[0])
     )
     # convert start_date and end_date to datetime
-    scenes_results["start_date"] = pd.to_datetime(scenes_results["start_date"].apply(lambda x : x[:10]))
-    scenes_results["end_date"] = pd.to_datetime(scenes_results["end_date"].apply(lambda x : x[:10]))
+    scenes_results["start_date"] = pd.to_datetime(
+        scenes_results["start_date"].apply(lambda x: x[:10])
+    )
+    scenes_results["end_date"] = pd.to_datetime(
+        scenes_results["end_date"].apply(lambda x: x[:10])
+    )
     print("Total of scenes for New York:", len(scenes_results))
     print("Distribution between the two datasets:")
     print(scenes_results["dataset_name"].value_counts())
@@ -152,51 +200,28 @@ def search_all_scenes_ny():
     return
 
 
-def download_data():
-    """Download scenes from all MSA"""
-    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
+def download_scenes_ny():
+    scenes_results = gpd.read_file("../data/ny_scenes.shp")
+
+    # filter only 2021 and naip
+    scenes_results = scenes_results[
+        (scenes_results["dataset_na"] == "naip")
+        & (scenes_results["start_date"].str.contains("2021"))
+    ]
+    scenes = {"results": []}
+    for i, row in scenes_results.iterrows():
+        scenes["results"].append({"entityId": row["entity_id"]})
+
+    print("Total of scenes to download:", len(scenes["results"]))
+
     m2m = connect_to_m2m_api()
-
-    for i, row in tqdm(msa_shp.iterrows()):
-        print(f"Download data from {row['NAME']}")
-        # config search
-        search_params = {
-            "datasetName": "naip",
-            "geoJsonType": "Polygon",
-            "geoJsonCoords": [list(row["geometry"].exterior.coords)],
-            "maxResults": 20,
-        }
-        download_dir = clean_dir_name(row["NAME"])
-        scenes = m2m.searchScenes(**search_params)
-        downloadMetadata = m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
-
-
-def estimate_size():
-    """Count the number of scenes and estimate the storage size"""
-    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
-    m2m = connect_to_m2m_api()
-    total_scenes = 0
-    for i, row in msa_shp.iterrows():
-        try:
-            # config search
-            search_params = {
-                "datasetName": "naip",
-                "geoJsonType": "Polygon",
-                "geoJsonCoords": [list(row["geometry"].exterior.coords)],
-                "maxResults": 3,
-            }
-            scenes = m2m.searchScenes(**search_params)
-            total_scenes += scenes["totalHits"]
-            print(f"MSA {row['NAME']} has {scenes['totalHits']} scenes")
-        except:
-            print(f"Error with MSA {row['NAME']}")
-
-    mb_by_scene = 400
-    print(f"Total scenes: {total_scenes}")
-    print(f"Total size: {(total_scenes * mb_by_scene)/ 1e6} TB")
+    download_dir = "./new_york"
+    # download scenes
+    m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
 
 
 if __name__ == "__main__":
     # download_data_test()
     # estimate_size()
-    search_all_scenes_ny()
+    # search_all_scenes_ny()
+    download_scenes_ny()
