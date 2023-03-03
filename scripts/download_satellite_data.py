@@ -17,13 +17,12 @@ def connect_to_m2m_api():
     return m2m
 
 
-def clean_dir_name(name):
+def clean_name(name):
     download_dir = name
     download_dir = download_dir.replace(", ", "_")
     download_dir = download_dir.replace(" ", "_")
     download_dir = download_dir.replace("-", "_")
     download_dir = download_dir.lower()
-    download_dir = "./" + download_dir
     return download_dir
 
 
@@ -46,7 +45,7 @@ def download_data_test():
         "maxResults": 10,
     }
 
-    download_dir = clean_dir_name(msa_shp.iloc[0]["NAME"])
+    download_dir = "./" + clean_name(msa_shp.iloc[0]["NAME"])
     scenes = m2m.searchScenes(**search_params)
     start = time()
     downloadMetadata = m2m.retrieveScenes(
@@ -71,7 +70,7 @@ def download_data():
             "geoJsonCoords": [list(row["geometry"].exterior.coords)],
             "maxResults": 20,
         }
-        download_dir = clean_dir_name(row["NAME"])
+        download_dir = "./" + clean_name(row["NAME"])
         scenes = m2m.searchScenes(**search_params)
         downloadMetadata = m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
 
@@ -101,101 +100,93 @@ def estimate_size():
     print(f"Total size: {(total_scenes * mb_by_scene)/ 1e6} TB")
 
 
-def search_all_scenes_ny():
-    """Download the lastest scens for New York"""
+def search_all_scenes(city = "New York", high_res_ortho = False, naip = True, years = list(range(2018, 2022))):
+    """
+    Function that search for all scenes of the "city" from the two datasets "high_res_ortho" or "naip"
+    and that from a year of the list "years" and saves into a shapefile with the metadata.
+
+    Inputs:
+        city - string with the city name
+        high_res_ortho - boolean if should use high_res_ortho dataset
+        naip - boolean if should use naip dataset
+        years - list of years to select scenes
+    """
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
 
+    clean_city_name = clean_name(city)
     msa_shp = gpd.read_file("../data/CityBoundaries.shp")
-    msa_shp = msa_shp[msa_shp.NAME == "New York"]
+    
+    assert high_res_ortho or naip
+    assert city in msa_shp.NAME.values
+    
+    msa_shp = msa_shp[msa_shp.NAME == city]
     msa_shp = msa_shp.to_crs("EPSG:4326")
 
     m2m = connect_to_m2m_api()
     scenes_results = []
-    # search all the scenes from "high_res_ortho"
-    for p in msa_shp.iloc[0]["geometry"].geoms:
-        coords = [list(p.exterior.coords)]
-        # config search
-        search_params = {
-            "datasetName": "high_res_ortho",
-            "geoJsonType": "Polygon",
-            "geoJsonCoords": coords,
-            "maxResults": 49999.0,
-        }
-        scenes = m2m.searchScenes(**search_params)
 
-        for r in scenes["results"]:
-            scenes_results.append(
-                {
-                    "dataset_name": "high_res_ortho",
-                    "entity_id": r["entityId"],
-                    "spatial_coverage": r["spatialCoverage"]["coordinates"],
-                    "start_date": r["temporalCoverage"]["startDate"],
-                    "end_date": r["temporalCoverage"]["endDate"],
-                }
-            )
+    if high_res_ortho:
+        for p in msa_shp.iloc[0]["geometry"].geoms:
+            coords = [list(p.exterior.coords)]
+            search_params = {
+                "datasetName": "high_res_ortho",
+                "geoJsonType": "Polygon",
+                "geoJsonCoords": coords,
+                "maxResults": 49999.0,
+            }
+            scenes = m2m.searchScenes(**search_params)
+            for r in scenes["results"]:
+                scenes_results.append(
+                    {
+                        "dataset": "high_res_ortho",
+                        "entity_id": r["entityId"],
+                        "spatial_coverage": r["spatialCoverage"]["coordinates"],
+                        "start_date": r["temporalCoverage"]["startDate"],
+                        "end_date": r["temporalCoverage"]["endDate"],
+                    }
+                )
 
-    # search all the scenes from "high_res_ortho"
-    for p in msa_shp.iloc[0]["geometry"].geoms:
-        coords = [list(p.exterior.coords)]
-        # config search
-        search_params = {
-            "datasetName": "naip",
-            "geoJsonType": "Polygon",
-            "geoJsonCoords": coords,
-            "maxResults": 49999,
-        }
-        scenes = m2m.searchScenes(**search_params)
+    if naip:
+        for p in msa_shp.iloc[0]["geometry"].geoms:
+            coords = [list(p.exterior.coords)]
+            search_params = {
+                "datasetName": "naip",
+                "geoJsonType": "Polygon",
+                "geoJsonCoords": coords,
+                "maxResults": 49999.0,
+            }
+            scenes = m2m.searchScenes(**search_params)
 
-        for r in scenes["results"]:
-            scenes_results.append(
-                {
-                    "dataset_name": "naip",
-                    "entity_id": r["entityId"],
-                    "spatial_coverage": r["spatialCoverage"]["coordinates"],
-                    "start_date": r["temporalCoverage"]["startDate"],
-                    "end_date": r["temporalCoverage"]["endDate"],
-                }
-            )
+            for r in scenes["results"]:
+                scenes_results.append(
+                    {
+                        "dataset": "naip",
+                        "entity_id": r["entityId"],
+                        "spatial_coverage": r["spatialCoverage"]["coordinates"],
+                        "start_date": r["temporalCoverage"]["startDate"],
+                        "end_date": r["temporalCoverage"]["endDate"],
+                    }
+                )
 
+    # create dataframe and do some cleaning
     scenes_results = pd.DataFrame(scenes_results)
-    # some cleaning on the dataframe and printing results
     scenes_results["geometry"] = scenes_results["spatial_coverage"].apply(
         lambda x: Polygon(x[0])
     )
-    # convert start_date and end_date to datetime
-    scenes_results["start_date"] = pd.to_datetime(
-        scenes_results["start_date"].apply(lambda x: x[:10])
-    )
-    scenes_results["end_date"] = pd.to_datetime(
-        scenes_results["end_date"].apply(lambda x: x[:10])
-    )
-    print("Total of scenes for New York:", len(scenes_results))
-    print("Distribution between the two datasets:")
-    print(scenes_results["dataset_name"].value_counts())
-    print("Distribution between the years for high_res_ortho:")
-    print(
-        scenes_results[scenes_results["dataset_name"] == "high_res_ortho"][
-            "start_date"
-        ].dt.year.value_counts()
-    )
-    print("Distribution between the years for naip:")
-    print(
-        scenes_results[scenes_results["dataset_name"] == "naip"][
-            "start_date"
-        ].dt.year.value_counts()
-    )
+    scenes_results["start_date"] = scenes_results["start_date"].apply(lambda x: x[:10])
+    scenes_results["end_date"] = scenes_results["end_date"].apply(lambda x: x[:10])
+    scenes_results["year"] = scenes_results["start_date"].apply(lambda x : x[:4]).astype(int)
+    scenes_results = scenes_results[scenes_results.year.isin(years)]
+    print(f"Total of scenes for {city}: {len(scenes_results)}")
 
     # convert to geodataframe and save
     scenes_results = gpd.GeoDataFrame(
         scenes_results, geometry="geometry", crs="EPSG:4326"
     )
-    scenes_results = scenes_results.drop(columns=["spatial_coverage"])
-    # return date columns to string
-    scenes_results["start_date"] = scenes_results["start_date"].astype(str)
-    scenes_results["end_date"] = scenes_results["end_date"].astype(str)
-    scenes_results.to_file("../data/ny_scenes.shp")
+    scenes_results = scenes_results.drop(columns=["spatial_coverage", "year"])
+    scenes_results.to_file(f"../data/shapefiles/{clean_city_name}_scenes.shp")
 
     return
 
@@ -215,7 +206,7 @@ def download_scenes_ny():
     print("Total of scenes to download:", len(scenes["results"]))
 
     m2m = connect_to_m2m_api()
-    download_dir = "./new_york"
+    download_dir = "./output/san_jose"
     # download scenes
     m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
 
@@ -223,5 +214,4 @@ def download_scenes_ny():
 if __name__ == "__main__":
     # download_data_test()
     # estimate_size()
-    # search_all_scenes_ny()
-    download_scenes_ny()
+    search_all_scenes("Denver")
