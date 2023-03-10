@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon
@@ -17,7 +18,7 @@ def connect_to_m2m_api():
     return m2m
 
 
-def clean_name(name):
+def get_clean_name(name):
     download_dir = name
     download_dir = download_dir.replace(", ", "_")
     download_dir = download_dir.replace(" ", "_")
@@ -26,103 +27,29 @@ def clean_name(name):
     return download_dir
 
 
-def download_data_test():
-    """Download some scenes from the smallest MSA"""
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
-
-    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
-    msa_shp["area"] = msa_shp["geometry"].area
-    msa_shp = msa_shp.sort_values("area")
-    print("Smallest metropolitan area:", msa_shp.iloc[0]["NAME"])
-    m2m = connect_to_m2m_api()
-    # config search
-    search_params = {
-        "datasetName": "high_res_ortho",
-        "geoJsonType": "Polygon",
-        "geoJsonCoords": [list(msa_shp.iloc[0]["geometry"].exterior.coords)],
-        "maxResults": 10,
-    }
-
-    download_dir = "./" + clean_name(msa_shp.iloc[0]["NAME"])
-    scenes = m2m.searchScenes(**search_params)
-    start = time()
-    downloadMetadata = m2m.retrieveScenes(
-        "high_res_ortho", scenes, download_dir=download_dir
-    )
-    end = time()
-
-    print(f"Downloaded {len(downloadMetadata)} scenes in {end - start:.2f} seconds")
-
-
-def download_data():
-    """Download scenes from all MSA"""
-    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
-    m2m = connect_to_m2m_api()
-
-    for i, row in tqdm(msa_shp.iterrows()):
-        print(f"Download data from {row['NAME']}")
-        # config search
-        search_params = {
-            "datasetName": "naip",
-            "geoJsonType": "Polygon",
-            "geoJsonCoords": [list(row["geometry"].exterior.coords)],
-            "maxResults": 20,
-        }
-        download_dir = "./" + clean_name(row["NAME"])
-        scenes = m2m.searchScenes(**search_params)
-        downloadMetadata = m2m.retrieveScenes("naip", scenes, download_dir=download_dir)
-
-
-def estimate_size():
-    """Count the number of scenes and estimate the storage size"""
-    msa_shp = gpd.read_file("../data/msa_pop_biggest.shp")
-    m2m = connect_to_m2m_api()
-    total_scenes = 0
-    for i, row in msa_shp.iterrows():
-        try:
-            # config search
-            search_params = {
-                "datasetName": "naip",
-                "geoJsonType": "Polygon",
-                "geoJsonCoords": [list(row["geometry"].exterior.coords)],
-                "maxResults": 3,
-            }
-            scenes = m2m.searchScenes(**search_params)
-            total_scenes += scenes["totalHits"]
-            print(f"MSA {row['NAME']} has {scenes['totalHits']} scenes")
-        except:
-            print(f"Error with MSA {row['NAME']}")
-
-    mb_by_scene = 400
-    print(f"Total scenes: {total_scenes}")
-    print(f"Total size: {(total_scenes * mb_by_scene)/ 1e6} TB")
-
-
-def search_scenes(city = "New York", dataset = "naip", years = list(range(2018, 2022))):
+def search_scenes(city = "New York", state = "NY", dataset = "naip", years = list(range(2018, 2022))):
     """
     Function that search for all scenes of the "city" from the two datasets "high_res_ortho" or "naip"
     and that from a year of the list "years" and saves into a shapefile with the metadata.
 
     Inputs:
         city - string with the city name
+        state - string with the state name
         dataset - string with the dataset name to be used, ["high_res_ortho", "naip"]
         years - list of years to select scenes
     """
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
 
-    print(f"Searching scenes for {city}")
-
-    clean_city_name = clean_name(city)
+    print(f"Searching scenes for {city} - {state}")
     cities_shp = gpd.read_file("../data/CityBoundaries.shp")
     
     assert dataset in ["naip", "high_res_ortho"]
     assert city in cities_shp.NAME.values
+    assert state in cities_shp.ST.values
     
-    cities_shp = cities_shp[cities_shp.NAME == city]
+    cities_shp = cities_shp[((cities_shp.NAME == city) & (cities_shp.ST == state))]
+
+    assert cities_shp.shape[0] > 0
+
     cities_shp = cities_shp.to_crs("EPSG:4326")
 
     m2m = connect_to_m2m_api()
@@ -151,7 +78,7 @@ def search_scenes(city = "New York", dataset = "naip", years = list(range(2018, 
                 }
             )
 
-    print(f"Total of {len(scenes_results)} scenes found")
+    print(f"Total of scenes found: {len(scenes_results)}")
     if len(scenes_results) == 0:
         return None
     
@@ -164,27 +91,37 @@ def search_scenes(city = "New York", dataset = "naip", years = list(range(2018, 
     scenes_results["end_date"] = scenes_results["end_date"].apply(lambda x: x[:10])
     scenes_results["year"] = scenes_results["start_date"].apply(lambda x : x[:4]).astype(int)
     scenes_results = scenes_results[scenes_results.year.isin(years)]
-    print(f"Total of scenes for {city}: {len(scenes_results)}")
 
+    if len(scenes_results) == 0:
+        return None
+
+    # filtering scenes based on download options
+    download_options = pd.DataFrame(m2m.downloadOptions(dataset, list(scenes_results.entity_id.values)))
+    download_options = download_options[download_options.available]
+    download_options = download_options[download_options.downloadSystem.isin(["dds", "dds_zip"])]
+    download_options = download_options[download_options.productName == "Full Resolution"]
+    download_options = download_options.drop_duplicates("entityId")
+
+    scenes_results = scenes_results[scenes_results.entity_id.isin(download_options.entityId.values)]
+    scenes_results = scenes_results.drop_duplicates(["entity_id"])
+    print(f"Total scenes for the selected years: {scenes_results.shape[0]} ")
     # convert to geodataframe and save
     scenes_results = gpd.GeoDataFrame(
         scenes_results, geometry="geometry", crs="EPSG:4326"
     )
     scenes_results = scenes_results.drop(columns=["spatial_coverage", "year"])
-    scenes_results.to_file(f"../data/shapefiles/{clean_city_name}_scenes.shp")
 
     return scenes_results
 
 
-def download_scenes(city = "New York"):
+def download_scenes(download_dir, scenes_results):
     """
-    Function that download previously search scenes for the "city".
+    Function that download previously searched scenes and download into a directory.
 
     Inputs:
-        city - string with the city name
+        download_dir - string with the download dir
+        scenes_results - geopandas dataframe with scenes information
     """
-    clean_city_name = clean_name(city)
-    scenes_results = gpd.read_file(f"../data/shapefiles/{clean_city_name}_scenes.shp")
     dataset = scenes_results.dataset.values[0]
     scenes = {"results": []}
     for i, row in scenes_results.iterrows():
@@ -192,28 +129,14 @@ def download_scenes(city = "New York"):
     print("Total of scenes to download:", len(scenes["results"]))
 
     m2m = connect_to_m2m_api()
-    download_dir = f"./../data/output/{clean_city_name}"
+    download_dir = f"./../data/output/{clean_city_name}_{clean_state_name}"
     # download scenes
-    m2m.retrieveScenes(dataset, scenes, download_dir=download_dir)
-
-
-def iterate_over_biggest_cities(n_biggest = 50,  dataset = "naip", years = list(range(2018, 2022))):
-    """
-    Iterate over the n_biggest cities downloading their scenes from the "dataset" dataset for any of the year in "years".
-
-    Inputs:
-        n_biggest - number of cities to select
-        dataset - string with the dataset name to be used, ["high_res_ortho", "naip"]
-        years - list of years to select scenes
-    """
-    cities_shp = gpd.read_file("../data/CityBoundaries.shp")
-    cities_shp["area"] = cities_shp.geometry.area
-    cities_shp = cities_shp.sort_values(by = "area", ascending = False)
-    cities_shp = cities_shp.head(n_biggest)
-    for i, row in cities_shp.iterrows():
-        scenes_results = search_scenes(row["NAME"], dataset, years)
-        if not scenes_results is None:
-            download_scenes(row["NAME"])
+    filter_options = {
+        "downloadSystem": lambda x: x == "dds_zip" or x == "dds",
+        "available": lambda x: x,
+        "productName" : lambda x : x == "Full Resolution"
+    }
+    m2m.retrieveScenes(dataset, scenes, filterOptions = filter_options, download_dir = download_dir)
 
 
 def iterate_over_selected_cities(selected_cities, dataset = "naip", years = list(range(2018, 2022))):
@@ -226,17 +149,101 @@ def iterate_over_selected_cities(selected_cities, dataset = "naip", years = list
         years - list of years to select scenes
     """
     for name in selected_cities:
+        city, state = name.split("-")
+        clean_city_name = get_clean_name(city)
+        clean_state_name = get_clean_name(state)
         scenes_results = search_scenes(name, dataset, years)
         if not scenes_results is None:
-            download_scenes(name)
+            download_scenes(name, scenes_results)
 
+
+def search_scenes_selected_cities_most_recent(selected_cities, dataset = "naip"):
+    cities_shp = gpd.read_file("../data/CityBoundaries.shp")
+    cities_shp = cities_shp.to_crs("EPSG:4326")
+    for name in selected_cities:
+        city, state = name.split("-")
+        scenes_results = search_scenes(city, state, dataset, list(range(2000, 2022)))
+        if scenes_results is None:
+            continue
+        scenes_results["year"] = scenes_results.start_date.apply(lambda x : int(x[:4]))
+        year_values = list(scenes_results.year.unique())
+        year_values.sort()
+        year_values.reverse()
+        filtered_cities_shp = cities_shp[(cities_shp.NAME == city) & (cities_shp.ST == state)]
+        for year in year_values:
+            scenes_results_year = scenes_results[scenes_results.year == year]
+            if scenes_results_year.shape[0] == 0:
+                continue
+            if verify_scenes_covering(filtered_cities_shp, scenes_results_year):
+                clean_city_name = get_clean_name(city)
+                clean_state_name = get_clean_name(state)
+                print(f"Scenes for {name} found for year {year}: {scenes_results_year.shape[0]}")
+                scenes_results_year.to_file(f"../data/scenes_metadata/{clean_city_name}_{clean_state_name}_last_scenes.geojson")
+                break
+
+def download_scenes_selected_cities_most_recent(selected_cities, dataset = "naip"):
+    for name in selected_cities:
+        city, state = name.split("-")
+        clean_city_name = get_clean_name(city)
+        clean_state_name = get_clean_name(state)
+        scenes_results = gpd.read_file(f"../data/scenes_metadata/{clean_city_name}_{clean_state_name}_last_scenes.geojson")
+        download_scenes(city, state, scenes_results)
+
+def get_biggest_gdp(n_biggest = 25):
+    """Order the MSA based on the GDP values, and for the n_biggest biggest MSA, select the city with biggest area """
+    gdp_df = pd.read_csv("../data/MSA_GDP.csv")[["GeoName", "2021"]]
+    # remove "United States" line
+    gdp_df = gdp_df[gdp_df.GeoName.apply(lambda x : x.find("United States") != 0)]
+
+    gdp_df["GeoName"] = gdp_df.GeoName.apply(lambda x : x[:x.find(' (')])
+    gdp_df["city"] = gdp_df.GeoName.apply(lambda x : x[:x.find(',')].strip().split("-"))
+    gdp_df["state"] = gdp_df.GeoName.apply(lambda x : x[x.find(',') + 1:].strip().split("-"))
+    gdp_df = gdp_df.sort_values("2021", ascending = False).head(n_biggest)
+
+    cities_shp = gpd.read_file("../data/CityBoundaries.shp")
+    cities_shp["area"] = cities_shp.geometry.area
+    cities_shp = cities_shp.sort_values(by = "area", ascending = False)
+
+    # create a new dataframe separating the cities of each MSA
+    gdp_df_separated = []
+    msa_i = 0
+    for i, row in gdp_df.iterrows():
+        for city in row["city"]:
+            for state in row["state"]:
+                filtered_shp = cities_shp[((cities_shp.NAME == city) & (cities_shp.ST == state))]
+                if  filtered_shp.shape[0] > 0:
+                    area = filtered_shp.geometry.values[0].area
+                    gdp_df_separated.append([city, state, area, msa_i])
+        msa_i += 1
+
+    gdp_df_separated = pd.DataFrame(gdp_df_separated, columns = ["city", "state", "area", "msa_i"])
+
+    # keep only the city of the biggest area for each MSA
+    def keep_biggest(df):
+        df = df[df.area == df.area.max()]
+        return df
+    gdp_df_separated = gdp_df_separated.groupby(["msa_i"]).apply(keep_biggest)
+    biggest_cities = list((gdp_df_separated.city + "-" + gdp_df_separated.state).values)
+    return biggest_cities
+
+
+def verify_scenes_covering(city_shp, scenes_shp):
+    """Verifies if the spatial extent of the scenes cover more than 70% of the area of the city"""
+    scenes_total_cover = scenes_shp.to_crs("EPSG:32633").geometry.unary_union
+    cities_total_cover = city_shp.to_crs("EPSG:32633").geometry.unary_union
+    cities_total_cover = cities_total_cover.buffer(0) # little fix
+    city_intersection = cities_total_cover.intersection(scenes_total_cover)
+    intersection_ratio = city_intersection.area / cities_total_cover.area
+    return intersection_ratio > 0.85
 
 
 if __name__ == "__main__":
-    # download_data_test()
-    # estimate_size()
-    #search_scenes("Denver")
-    #download_scenes("Denver")
 
-    iterate_over_biggest_cities(n_biggest = 10)
-    #iterate_over_selected_cities(["Houston"])
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
+    selected_cities = get_biggest_gdp(50)
+    print(selected_cities)
+    #search_scenes_selected_cities_most_recent(selected_cities)
+    download_scenes_selected_cities_most_recent(selected_cities[:10])
