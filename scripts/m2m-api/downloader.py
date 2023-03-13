@@ -92,8 +92,10 @@ def download_scenes(downloads, downloadMeta, download_dir = None):
     for download in downloads:
         idD = str(download['downloadId'])
         displayId = downloadMeta[idD]['displayId']
+        entityId = downloadMeta[idD]["entityId"]
+
         url = download['url']
-        local_path = osp.join(download_dir, displayId+'.tar')
+        local_path = osp.join(download_dir, entityId + "_" + displayId +'.tar')
         if available_locally(local_path):
             logging.info('downloadScenes - file {} is locally available'.format(local_path))
         else:
