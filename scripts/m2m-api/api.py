@@ -12,6 +12,7 @@ from downloader import download_scenes
 M2M_ENDPOINT = "https://m2m.cr.usgs.gov/api/api/json/{}"
 logging.getLogger("requests").setLevel(logging.WARNING)
 
+
 class M2MError(Exception):
     """
     Raised when an M2M gets an error.
@@ -34,7 +35,7 @@ class M2M(object):
         self.datasetNames = [dataset["datasetAlias"] for dataset in allDatasets]
         self.permissions = self.sendRequest("permissions")
 
-    def sendRequest(self, endpoint, data={}, max_retries=19):
+    def sendRequest(self, endpoint, data={}, max_retries=10):
         url = osp.join(self.serviceUrl, endpoint)
         logging.info("sendRequest - url = {}".format(url))
         json_data = json.dumps(data)
@@ -124,17 +125,12 @@ class M2M(object):
         filteredOptions = apply_filter(downloadOptions, filterOptions)
         return filteredOptions
 
-    def downloadRequest(self, downloadList, label):
-        params = {
-            "downloads": downloadList,
-            "label": label,
-        }
+    def downloadRequest(self, downloadList, label="m2m-api_download"):
+        params = {"downloads": downloadList, "label": label}
         return self.sendRequest("download-request", params)
 
-    def downloadRetrieve(self, label):
-        params = {
-            "label": label
-        }
+    def downloadRetrieve(self, label="m2m-api_download"):
+        params = {"label": label}
         return self.sendRequest("download-retrieve", params)
 
     def downloadSearch(self, label=None):
@@ -147,47 +143,31 @@ class M2M(object):
         self.sendRequest("download-order-remove", label)
 
     def retrieveScenes(
-        self,
-        datasetName,
-        scenes,
-        filterOptions={},
-        download_dir=None,
+        self, scenes, download_dir, label="m2m-api_download"
     ):
-        if len(filterOptions) == 0:
-            filterOptions = {
-                "downloadSystem": lambda x: x == "dds_zip" or x == "dds",
-                "available": lambda x: x,
-            }
-        # get string of day and time
-        random_label = "request_" + time.strftime("%Y%m%d_%H%M%S", time.localtime())
-        labels = [random_label]
-        entityIds = [scene["entityId"] for scene in scenes["results"]]
-        downloadOptions = self.downloadOptions(datasetName, entityIds, filterOptions)
+        labels = [label]
         downloads = [
-            {"entityId": product["entityId"], "productId": product["id"]}
-            for product in downloadOptions
+            {"entityId": product["entity_id"], "productId": product["product_id"]}
+            for product in scenes
         ]
         requestedDownloadsCount = len(downloads)
-
         if requestedDownloadsCount:
             logging.info(
                 "M2M.retrieveScenes - Requested downloads count={}".format(
                     requestedDownloadsCount
                 )
             )
-            requestResults = self.downloadRequest(downloads, labels[0])
+            requestResults = self.downloadRequest(downloads)
             if len(requestResults["duplicateProducts"]):
                 for product in requestResults["duplicateProducts"].values():
                     if product not in labels:
                         labels.append(product)
-
             downloadMeta = {}
             for label in labels:
                 downloadSearch = self.downloadSearch(label)
                 if downloadSearch is not None:
                     for ds in downloadSearch:
                         downloadMeta.update({str(ds["downloadId"]): ds})
-
             if (
                 requestResults["preparingDownloads"] != None
                 and len(requestResults["preparingDownloads"]) > 0
