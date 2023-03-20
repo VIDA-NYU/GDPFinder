@@ -384,6 +384,57 @@ def extract_tar_selected_cities_most_recent(
         extract_tar(tar_files_list_city, verify_before_extract=verify_before_extract)
 
 
+def check_selected_cities_most_recent(selected_cities, try_download = False):
+    """
+    Function will verify all the files and look for errors (some missing download file or some not extracted file).
+    It will return a Dataframe with the errors information.
+    """
+    tar_files = [
+        f
+        for f in os.listdir("/vida/work/GDPFinder/GDPFinder/data/output/tar_files")
+        if f[-4:] == ".tar"
+    ]
+    tar_files_entity_id = [int(x.split("_")[0]) for x in tar_files]
+    tif_files = [
+        f
+        for f in os.listdir("/vida/work/GDPFinder/GDPFinder/data/output/unzipped_files")
+        if f[-4:] == ".tif"
+    ]
+    tif_files_entity_id = [int(x.split("_")[0]) for x in tif_files]
+    df = []
+    for name in selected_cities:
+        city, state = name.split("-")
+        clean_city_name = get_clean_name(city)
+        clean_state_name = get_clean_name(state)
+        scenes_results = gpd.read_file(
+            f"../data/scenes_metadata/{clean_city_name}_{clean_state_name}_last_scenes.geojson"
+        )
+        scenes_results["entity_id"] = scenes_results.entity_id.astype(int)
+
+        for i, row in scenes_results.iterrows():
+            available = False
+            entity_id = row["entity_id"]
+            if entity_id in tar_files_entity_id and entity_id in tif_files_entity_id:
+                available = True
+
+            if not available:
+                df.append([row["entity_id"], row["product_id"], city, state])
+
+    df = pd.DataFrame(df, columns=["entity_id", "product_id", "city", "state"])
+
+    if try_download:
+        for i, row in df.iterrows():
+            if row["entity_id"] in tar_files_entity_id:
+                tar_filename = tar_files[tar_files_entity_id.index(row["entity_id"])]
+                os.remove("../data/output/tar_files/" + tar_filename)
+            if row["entity_id"] in tif_files_entity_id:
+                tif_filename = tar_files[tif_files_entity_id.index(row["entity_id"])]
+                os.remove("../data/output/unzipped_files/" + tif_filename)
+
+        download_scenes("./../data/output/tar_files", df)
+    return df
+
+
 if __name__ == "__main__":
 
     logging.basicConfig(
@@ -393,4 +444,6 @@ if __name__ == "__main__":
     selected_cities = get_biggest_gdp(50)
     # search_scenes_selected_cities_most_recent(selected_cities)
     # download_scenes_selected_cities_most_recent(selected_cities)
-    extract_tar_selected_cities_most_recent(selected_cities, verify_before_extract=True)
+    #extract_tar_selected_cities_most_recent(selected_cities, verify_before_extract=True)
+    print(check_selected_cities_most_recent(selected_cities, False))
+    #extract_tar_selected_cities_most_recent(selected_cities, verify_before_extract=True)
