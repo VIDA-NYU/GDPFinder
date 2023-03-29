@@ -34,51 +34,6 @@ def get_clean_name(name):
     return download_dir
 
 
-def get_biggest_gdp(n_biggest=25):
-    """Order the MSA based on the GDP values, and for the n_biggest biggest MSA, select the city with biggest area"""
-    gdp_df = pd.read_csv("../data/MSA_GDP.csv")[["GeoName", "2021"]]
-    # remove "United States" line
-    gdp_df = gdp_df[gdp_df.GeoName.apply(lambda x: x.find("United States") != 0)]
-
-    gdp_df["GeoName"] = gdp_df.GeoName.apply(lambda x: x[: x.find(" (")])
-    gdp_df["city"] = gdp_df.GeoName.apply(lambda x: x[: x.find(",")].strip().split("-"))
-    gdp_df["state"] = gdp_df.GeoName.apply(
-        lambda x: x[x.find(",") + 1 :].strip().split("-")
-    )
-    gdp_df = gdp_df.sort_values("2021", ascending=False).head(n_biggest)
-
-    cities_shp = gpd.read_file("../data/CityBoundaries.shp")
-    cities_shp["area"] = cities_shp.geometry.area
-    cities_shp = cities_shp.sort_values(by="area", ascending=False)
-
-    # create a new dataframe separating the cities of each MSA
-    gdp_df_separated = []
-    msa_i = 0
-    for i, row in gdp_df.iterrows():
-        for city in row["city"]:
-            for state in row["state"]:
-                filtered_shp = cities_shp[
-                    ((cities_shp.NAME == city) & (cities_shp.ST == state))
-                ]
-                if filtered_shp.shape[0] > 0:
-                    area = filtered_shp.geometry.values[0].area
-                    gdp_df_separated.append([city, state, area, msa_i])
-        msa_i += 1
-
-    gdp_df_separated = pd.DataFrame(
-        gdp_df_separated, columns=["city", "state", "area", "msa_i"]
-    )
-
-    # keep only the city of the biggest area for each MSA
-    def keep_biggest(df):
-        df = df[df.area == df.area.max()]
-        return df
-
-    gdp_df_separated = gdp_df_separated.groupby(["msa_i"]).apply(keep_biggest)
-    biggest_cities = list((gdp_df_separated.city + "-" + gdp_df_separated.state).values)
-    return biggest_cities
-
-
 def search_scenes(
     city="New York", state="NY", dataset="naip", years=list(range(2018, 2022))
 ):
@@ -384,7 +339,7 @@ def extract_tar_selected_cities_most_recent(
         extract_tar(tar_files_list_city, verify_before_extract=verify_before_extract)
 
 
-def check_selected_cities_most_recent(selected_cities, try_download = False):
+def check_selected_cities_most_recent(selected_cities, try_download=False):
     """
     Function will verify all the files and look for errors (some missing download file or some not extracted file).
     It will return a Dataframe with the errors information.
@@ -440,10 +395,10 @@ if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
     )
+    df_biggest_cities = pd.read_csv("../data/cities_biggest_gdp.csv").head(100)
 
-    selected_cities = get_biggest_gdp(50)
-    # search_scenes_selected_cities_most_recent(selected_cities)
-    # download_scenes_selected_cities_most_recent(selected_cities)
+    selected_cities = (df_biggest_cities.city + "-" + df_biggest_cities.state).tolist()
+    #search_scenes_selected_cities_most_recent(selected_cities)
+    #download_scenes_selected_cities_most_recent(selected_cities)
     #extract_tar_selected_cities_most_recent(selected_cities, verify_before_extract=True)
     print(check_selected_cities_most_recent(selected_cities, False))
-    #extract_tar_selected_cities_most_recent(selected_cities, verify_before_extract=True)
