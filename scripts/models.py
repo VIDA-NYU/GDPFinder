@@ -4,132 +4,11 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
-
-
-class ConvAutoencoder(nn.Module):
-    """
-    Convolutional Autoencoder using the VGG16 architecture as enconder. (to use few parameters)
-    """
-
-    def __init__(self, dims):
-        super(ConvAutoencoder, self).__init__()
-
-        # Encoder
-        self.encoder_layer1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-        )
-        self.encoder_layer2 = nn.Sequential(
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.encoder_layer3 = nn.Sequential(
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-        )
-        self.encoder_layer4 = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.encoder_layer5 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-        )
-        self.encoder_layer6 = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-        )
-        self.encoder_layer7 = nn.Sequential(
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.encoder_layer8 = nn.Sequential(
-            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-        )
-        self.encoder_layer9 = nn.Sequential(
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-        )
-        self.encoder_layer10 = nn.Sequential(
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.encoder_layer11 = nn.Sequential(
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-        )
-        self.encoder_layer12 = nn.Sequential(
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-        )
-        self.encoder_layer13 = nn.Sequential(
-            nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-        self.encoder_fc1 = nn.Sequential(
-            nn.Dropout(0.5), nn.Linear(7 * 7 * 512, 4096), nn.ReLU()
-        )
-        self.encoder_fc2 = nn.Sequential(
-            nn.Dropout(0.5), nn.Linear(4096, 4096), nn.ReLU()
-        )
-
-        # Decoder
-
-        # self.decoder = []
-        # for i, (input, output) in enumerate(zip(dims[:-1], dims[1:])):
-
-        #    self.t_conv1 = nn.ConvTranspose2d(4, 16, 2, stride=2)
-
-        # dims_inverse = dims[::-1]
-        # for (input, output) in zip(dims_inverse[:-1], dims_inverse[1:]):
-        #    self.decoder.append(nn.Linear(input, output))
-        #    self.t_conv2 = nn.ConvTranspose2d(16, 3, 2, stride=2)
-        #    if i != len(dims) - 2:
-        #        self.decoder.append(nn.ReLU())
-        #
-        # self.decoder = nn.Sequential(*self.decoder)
-
-    def forward(self, x):
-        x = self.encoder_layer1(x)
-        x = self.encoder_layer2(x)
-        x = self.encoder_layer3(x)
-        x = self.encoder_layer4(x)
-        x = self.encoder_layer5(x)
-        x = self.encoder_layer6(x)
-        x = self.encoder_layer7(x)
-        x = self.encoder_layer8(x)
-        x = self.encoder_layer9(x)
-        x = self.encoder_layer10(x)
-        x = self.encoder_layer11(x)
-        x = self.encoder_layer12(x)
-        x = self.encoder_layer13(x)
-        x = x.view(x.size(0), -1)
-        x = self.encoder_fc1(x)
-        encoded = self.encoder_fc2(x)
-
-        return encoded
+from vgg import VGGAutoEncoder, get_configs
 
 
 class DEC(nn.Module):
@@ -149,7 +28,7 @@ class DEC(nn.Module):
 
     def __init__(
         self,
-        dims,
+        encoder,
         n_clusters=15,
         alpha=1,
         pretrain_epochs=100,
@@ -158,8 +37,9 @@ class DEC(nn.Module):
         device=None,
     ):
         super().__init__()
-        self.CAE = ConvAutoencoder(dims)
-        self.embedding_size = dims[-1]
+        configs = get_configs(encoder)
+        self.CAE = VGGAutoEncoder(configs=configs)
+        self.embedding_size = 25088
         self.n_clusters = n_clusters
         self.alpha = alpha
         self.pretrain_epochs = pretrain_epochs
@@ -169,7 +49,7 @@ class DEC(nn.Module):
 
         self.criterion = nn.MSELoss()
         self.cluster_criterion = nn.KLDivLoss(size_average=False)
-        self.optimizer = torch.optim.Adam(self.AE.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(self.CAE.parameters(), lr=1e-3)
 
     def get_centers(self, loader):
         """
@@ -196,7 +76,7 @@ class DEC(nn.Module):
             requires_grad=True,
         )
         self.cluster_optimizer = torch.optim.SGD(
-            params=list(self.AE.parameters()) + [self.centers], lr=0.1, momentum=0.9
+            params=list(self.CAE.parameters()) + [self.centers], lr=0.1, momentum=0.9
         )
 
         assert (self.centers[0, :] != self.centers[1, :]).sum() > 2
@@ -266,7 +146,7 @@ class DEC(nn.Module):
         y = []
         for batch, _ in loader:
             batch = batch.to(self.device)
-            output = self.AE(batch)[0]
+            output = self.CAE(batch)[0]
             embeddings.append(output.cpu().detach().numpy())
             y.append(self.get_clusters_batch(batch))
         embeddings = np.concatenate(embeddings, axis=0)
@@ -294,7 +174,8 @@ class DEC(nn.Module):
         """
 
         # Pretrain Autoencoder
-        for _ in range(self.pretrain_epochs):
+        print("Pretraining Autoencoder...")
+        for _ in tqdm(range(self.pretrain_epochs)):
             for batch, _ in loader:
                 batch = batch.to(self.device)
                 _, reconstruction = self.CAE(batch)
@@ -313,7 +194,8 @@ class DEC(nn.Module):
             self.plot_centers()
             self.train()
 
-        for _ in range(self.train_epochs):
+        print("Training with clustering loss...")
+        for _ in tqdm(range(self.train_epochs)):
             for batch, _ in loader:
                 batch = batch.to(self.device)
                 embedding, _ = self.CAE(batch)
@@ -330,11 +212,31 @@ class DEC(nn.Module):
             self.plot_latent_space(loader)
             self.plot_centers()
 
+class PatchesDataset(torch.utils.data.Dataset):
+    def __init__(self, imgs):
+        self.data = imgs
+        
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx, :], 0
+
 
 if __name__ == "__main__":
     print("hi")
-    sample_img = torch.rand(224, 224, 3)
-    cae = ConvAutoencoder()
-
-    out = cae(sample_img.unsqueeze(0))
-    print(out.shape)
+    device = "cpu"#torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    sample_imgs = torch.rand(20, 3, 224, 224)
+    train_dataset = PatchesDataset(sample_imgs)
+    dl = DataLoader(train_dataset, batch_size=10)
+    model = DEC(
+        "vgg16",
+        n_clusters=15,
+        alpha=1,
+        pretrain_epochs=20,
+        train_epochs=20,
+        plot_results=True,
+        device=device
+    )
+    model.to(device)
+    model.fit(dl)
