@@ -1,8 +1,15 @@
+import numpy as np
 import pandas as pd
 import geopandas as gpd
+from shapely.geometry import Point
+import rasterio
+from rasterio.mask import mask
+from rasterio.plot import show
 import matplotlib.pyplot as plt
+from matplotlib import cm
 from PIL import Image
 import os
+from sklearn.feature_extraction import image
 
 
 def create_files_df():
@@ -32,9 +39,32 @@ def create_files_df():
         scenes_shp[-1]["city"] = city
         scenes_shp[-1]["state"] = state
         scenes_shp[-1]["shapefile_filename"] = f
-    scenes_shp = pd.concat(scenes_shp)
+    scenes_shp = gpd.GeoDataFrame(pd.concat(scenes_shp))
     df = pd.merge(unzipped_files_df, scenes_shp, on="entity_id", how="left")
-    return df
+    return gpd.GeoDataFrame(df)
+
+
+def separate_tif_into_patches(tif, shp, size=224, overlap=8):
+    geo = [shp.to_crs(tif.crs).geometry.unary_union]
+    out_image, _ = mask(tif, geo, filled=True)
+    patches = []
+    n_horizontal = out_image.shape[1] // (size - overlap)
+    n_vertical = out_image.shape[2] // (size - overlap)
+
+    for i in range(n_horizontal):
+        for j in range(n_vertical):
+            i1 = i * (size - overlap)
+            i2 = i1 + size
+            j1 = j * (size - overlap)
+            j2 = j1 + size
+            patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
+ 
+    for i, img in enumerate(patches):
+        plt.axis(False)
+        plt.imshow(img, interpolation="nearest")
+        plt.savefig(f"../figures/testing_{i}.png")
+        plt.close()
+    
 
 
 def plot_tif_image(filename, save_path=None):
@@ -45,6 +75,7 @@ def plot_tif_image(filename, save_path=None):
     width, height = im.size
     new_height = int(1080 / width * height)
     im = im.resize((1080, new_height), resample=Image.Resampling.BILINEAR)
+    im = np.array(im)[:, :, :3]
     plt.imshow(im)
     plt.axis(False)
     plt.title(f"scene {filename.split('_')[0]}")
@@ -55,11 +86,26 @@ def plot_tif_image(filename, save_path=None):
 
 
 if __name__ == "__main__":
+    # saving metadata from the download tif images
     # df = create_files_df()
-    # df.to_csv("../data/output/downloaded_scenes_metadata.csv", index = False)
-    filename = (
-        pd.read_csv("../data/output/downloaded_scenes_metadata.csv")
-        .sample()
-        .tif_filename.values[0]
+    # df.to_file("../data/output/downloaded_scenes_metadata.geojson")
+    
+    # testing ploting a random image
+    # filename = (
+    #    gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
+    #    .sample()
+    #    .tif_filename.values[0]
+    # )
+    # plot_tif_image(filename, "../figures/tif_plot.png")
+
+    # getting patches for the tile of manhattan
+    test_sample = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
+    test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
+
+    shp = gpd.read_file(
+        f"../data/scenes_metadata/{test_sample.shapefile_filename.values[0]}"
     )
-    plot_tif_image(filename, "../figures/tif_plot.png")
+    tif = rasterio.open(
+        f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
+    )
+    separate_tif_into_patches(tif, shp)
