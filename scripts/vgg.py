@@ -20,26 +20,26 @@ def get_configs(arch='vgg16'):
 
 class VGGAutoEncoder(nn.Module):
 
-    def __init__(self, configs, flat_embedding = True):
+    def __init__(self, configs, latent_dim = 1024, flat_embedding = True):
 
         super(VGGAutoEncoder, self).__init__()
         self.flat_embedding = flat_embedding
         # VGG without Bn as AutoEncoder is hard to train
-        self.encoder = VGGEncoder(configs=configs, enable_bn=True)
-        self.decoder = VGGDecoder(configs=configs[::-1], enable_bn=True)
+        self.encoder = VGGEncoder(configs=configs, latent_dim = latent_dim, enable_bn=True)
+        self.decoder = VGGDecoder(configs=configs[::-1], latent_dim = latent_dim, enable_bn=True)
         
     
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
-        if self.flat_embedding:
-            encoded = torch.flatten(encoded, 1)
+        #if self.flat_embedding:
+        #    encoded = torch.flatten(encoded, 1)
 
         return encoded, decoded
 
 class VGGEncoder(nn.Module):
 
-    def __init__(self, configs, enable_bn=False):
+    def __init__(self, configs, latent_dim, enable_bn=False):
 
         super(VGGEncoder, self).__init__()
 
@@ -52,6 +52,10 @@ class VGGEncoder(nn.Module):
         self.conv3 = EncoderBlock(input_dim=128, output_dim=256, hidden_dim=256, layers=configs[2], enable_bn=enable_bn)
         self.conv4 = EncoderBlock(input_dim=256, output_dim=512, hidden_dim=512, layers=configs[3], enable_bn=enable_bn)
         self.conv5 = EncoderBlock(input_dim=512, output_dim=512, hidden_dim=512, layers=configs[4], enable_bn=enable_bn)
+        self.fc = nn.Sequential(
+            nn.Linear(25088, latent_dim),
+            nn.ReLU()
+        )
     
     def forward(self, x):
 
@@ -60,12 +64,14 @@ class VGGEncoder(nn.Module):
         x = self.conv3(x)
         x = self.conv4(x)
         x = self.conv5(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
 
         return x
 
 class VGGDecoder(nn.Module):
 
-    def __init__(self, configs, enable_bn=False):
+    def __init__(self, configs, latent_dim, enable_bn=False):
 
         super(VGGDecoder, self).__init__()
 
@@ -73,6 +79,10 @@ class VGGDecoder(nn.Module):
 
             raise ValueError("There should be 5 stage in VGG")
 
+        self.fc = nn.Sequential(
+            nn.Linear(latent_dim, 25088),
+            nn.ReLU()
+        )
         self.conv1 = DecoderBlock(input_dim=512, output_dim=512, hidden_dim=512, layers=configs[0], enable_bn=enable_bn)
         self.conv2 = DecoderBlock(input_dim=512, output_dim=256, hidden_dim=512, layers=configs[1], enable_bn=enable_bn)
         self.conv3 = DecoderBlock(input_dim=256, output_dim=128, hidden_dim=256, layers=configs[2], enable_bn=enable_bn)
@@ -82,6 +92,8 @@ class VGGDecoder(nn.Module):
     
     def forward(self, x):
 
+        x = self.fc(x)
+        x = x.view(-1, 512, 7, 7)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
