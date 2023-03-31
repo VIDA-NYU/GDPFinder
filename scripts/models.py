@@ -62,10 +62,11 @@ class DEC(nn.Module):
             loader: torch.utils.data.DataLoader
         """
         auto_encoder_embeddings = []
-        for batch, _ in loader:
-            batch = batch.to(self.device)
-            embedding, _ = self.CAE(batch)
-            auto_encoder_embeddings.append(embedding.cpu().detach().numpy())
+        with torch.no_grad():
+            for batch, _ in loader:
+                batch = batch.to(self.device)
+                embedding, _ = self.CAE(batch)
+                auto_encoder_embeddings.append(embedding.cpu().detach().numpy())
         auto_encoder_embeddings = np.concatenate(auto_encoder_embeddings)
 
         k_means = KMeans(n_clusters=self.n_clusters, init="k-means++").fit(
@@ -131,9 +132,10 @@ class DEC(nn.Module):
             loader: torch.utils.data.DataLoader
         """
         y = []
-        for batch, _ in loader:
-            batch = batch.to(self.device)
-            y.append(self.get_clusters_batch(batch))
+        with torch.no_grad():
+            for batch, _ in loader:
+                batch = batch.to(self.device)
+                y.append(self.get_clusters_batch(batch))
         y = np.concatenate(y)
         return y
 
@@ -146,11 +148,12 @@ class DEC(nn.Module):
         """
         embeddings = []
         y = []
-        for batch, _ in loader:
-            batch = batch.to(self.device)
-            output = self.CAE(batch)[0]
-            embeddings.append(output.cpu().detach().numpy())
-            y.append(self.get_clusters_batch(batch))
+        with torch.no_grad():
+            for batch, _ in loader:
+                batch = batch.to(self.device)
+                output = self.CAE(batch)[0]
+                embeddings.append(output.cpu().detach().numpy())
+                y.append(self.get_clusters_batch(batch))
         embeddings = np.concatenate(embeddings, axis=0)
         y = np.concatenate(y)
         embeddings_proj = TSNE(n_components=2).fit_transform(embeddings)
@@ -221,7 +224,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataset = get_sample_patches_dataset()
     print("dataset size:", len(dataset))
-    dl = DataLoader(dataset, batch_size=32)
+    dl = DataLoader(dataset, batch_size=16)
     model = DEC(
         "vgg16",
         n_clusters=15,
