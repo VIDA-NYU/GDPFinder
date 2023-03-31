@@ -221,7 +221,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataset = get_sample_patches_dataset()
     print("dataset size:", len(dataset))
-    dl = DataLoader(train_dataset, batch_size=10)
+    dl = DataLoader(dataset, batch_size=32)
     model = DEC(
         "vgg16",
         n_clusters=15,
