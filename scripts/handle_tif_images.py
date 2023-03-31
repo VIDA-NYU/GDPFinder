@@ -44,13 +44,22 @@ def create_files_df():
     return gpd.GeoDataFrame(df)
 
 
-def separate_tif_into_patches(tif, shp, size=224, overlap=8):
-    geo = [shp.to_crs(tif.crs).geometry.unary_union]
+def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = False):
+    # get the boundaries of the scene city
+    cities_shp = gpd.read_file("../data/CityBoundaries.shp").to_crs(tif.crs)
+    cities_shp["city_name"] = cities_shp.NAME.apply(lambda x : x.lower().replace(" ", "_").replace("-", "_"))
+    cities_shp["state_name"] = cities_shp.ST.apply(lambda x : x.lower())
+    city = shp.city.values[0]
+    state = shp.state.values[0]
+    geo = cities_shp[(cities_shp.city_name == city) & (cities_shp.state_name == state)].geometry.values[0]
+    
+    # mask it
     out_image, _ = mask(tif, geo, filled=True)
+    
+    # crop into patches
     patches = []
     n_horizontal = out_image.shape[1] // (size - overlap)
     n_vertical = out_image.shape[2] // (size - overlap)
-
     for i in range(n_horizontal):
         for j in range(n_vertical):
             i1 = i * (size - overlap)
@@ -58,13 +67,15 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8):
             j1 = j * (size - overlap)
             j2 = j1 + size
             patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
- 
-    for i, img in enumerate(patches):
-        plt.axis(False)
-        plt.imshow(img, interpolation="nearest")
-        plt.savefig(f"../figures/testing_{i}.png")
-        plt.close()
     
+    if plot_patches:
+        for i, img in enumerate(patches):
+            plt.axis(False)
+            plt.imshow(img, interpolation="nearest")
+            plt.savefig(f"../figures/testing_{i}.png")
+            plt.close()
+    
+    return patches
 
 
 def plot_tif_image(filename, save_path=None):
@@ -102,10 +113,7 @@ if __name__ == "__main__":
     test_sample = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
     test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
 
-    shp = gpd.read_file(
-        f"../data/scenes_metadata/{test_sample.shapefile_filename.values[0]}"
-    )
     tif = rasterio.open(
         f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
     )
-    separate_tif_into_patches(tif, shp)
+    separate_tif_into_patches(tif, test_sample)
