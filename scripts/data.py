@@ -3,6 +3,7 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 import torch
+from torchvision import transforms
 import rasterio
 from handle_tif_images import separate_tif_into_patches
 
@@ -30,6 +31,11 @@ def get_sample_patches_dataset():
         )
     
     patches = sum(patches, [])
-    patches = torch.tensor(np.array(patches).transpose(0, 3, 1, 2).astype(np.float32))
+    
+    preprocess = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    patches = torch.stack([preprocess(patch) for patch in patches])
     dataset = PatchesDataset(patches)
     return dataset
