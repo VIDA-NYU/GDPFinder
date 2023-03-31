@@ -67,6 +67,8 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
             j1 = j * (size - overlap)
             j2 = j1 + size
             patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
+            if np.sum(patches[-1]) == 0:
+                patches.pop()
     
     if plot_patches:
         for i, img in enumerate(patches):
@@ -98,8 +100,8 @@ def plot_tif_image(filename, save_path=None):
 
 if __name__ == "__main__":
     # saving metadata from the download tif images
-    # df = create_files_df()
-    # df.to_file("../data/output/downloaded_scenes_metadata.geojson")
+    df = create_files_df()
+    df.to_file("../data/output/downloaded_scenes_metadata.geojson")
     
     # testing ploting a random image
     # filename = (
@@ -110,10 +112,10 @@ if __name__ == "__main__":
     # plot_tif_image(filename, "../figures/tif_plot.png")
 
     # getting patches for the tile of manhattan
-    test_sample = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
-    test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
+    # test_sample = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
+    # test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
 
-    tif = rasterio.open(
-        f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
-    )
-    separate_tif_into_patches(tif, test_sample)
+    # tif = rasterio.open(
+    #    f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
+    #)
+    #separate_tif_into_patches(tif, test_sample)
