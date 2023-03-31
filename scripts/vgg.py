@@ -25,7 +25,7 @@ class VGGAutoEncoder(nn.Module):
         super(VGGAutoEncoder, self).__init__()
         self.flat_embedding = flat_embedding
         # VGG without Bn as AutoEncoder is hard to train
-        self.encoder = VGGEncoder(configs=configs,       enable_bn=True)
+        self.encoder = VGGEncoder(configs=configs, enable_bn=True)
         self.decoder = VGGDecoder(configs=configs[::-1], enable_bn=True)
         
     

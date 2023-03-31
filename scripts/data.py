@@ -1,6 +1,7 @@
 import os
 import geopandas as gpd
 import pandas as pd
+import numpy as np
 import torch
 import rasterio
 from handle_tif_images import separate_tif_into_patches
@@ -27,6 +28,8 @@ def get_sample_patches_dataset():
         patches.append(
             separate_tif_into_patches(tif, row, plot_patches=False)
         )
- 
-    dataset = PatchesDataset(np.array(patches))
+    
+    patches = sum(patches, [])
+    patches = torch.tensor(np.array(patches).transpose(0, 3, 1, 2).astype(np.float32))
+    dataset = PatchesDataset(patches)
     return dataset
