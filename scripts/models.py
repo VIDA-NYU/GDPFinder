@@ -10,6 +10,8 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from vgg import VGGAutoEncoder, get_configs
 
+from data import get_sample_patches_dataset
+
 
 class DEC(nn.Module):
     """
@@ -212,22 +214,13 @@ class DEC(nn.Module):
             self.plot_latent_space(loader)
             self.plot_centers()
 
-class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, imgs):
-        self.data = imgs
-        
-    def __len__(self):
-        return len(self.data)
 
-    def __getitem__(self, idx):
-        return self.data[idx, :], 0
 
 
 if __name__ == "__main__":
-    print("hi")
-    device = "cpu"#torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sample_imgs = torch.rand(20, 3, 224, 224)
-    train_dataset = PatchesDataset(sample_imgs)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dataset = get_sample_patches_dataset()
+    print("dataset size:", len(dataset))
     dl = DataLoader(train_dataset, batch_size=10)
     model = DEC(
         "vgg16",
@@ -240,3 +233,7 @@ if __name__ == "__main__":
     )
     model.to(device)
     model.fit(dl)
+
+    centers = model.centers.cpu().detach().numpy()
+    # save centers to npy
+    np.save("centers.npy", centers)
