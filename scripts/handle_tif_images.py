@@ -15,7 +15,7 @@ from sklearn.feature_extraction import image
 def create_files_df():
     """
     Function that will look into every tif image inside the folder data/output/unzipped_files
-    and obtain the metadata of the scene that it is related.
+    and obtain the metadata of the scene that it is related based on the data/scenes_metadata folder.
     """
     # creating dataframe of unzipped files
     unzipped_files = [
@@ -44,7 +44,20 @@ def create_files_df():
     return gpd.GeoDataFrame(df)
 
 
-def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = False):
+def separate_tif_into_patches(tif, shp, size=224, overlap=8):
+    """
+    Mask the tif image with the boundaries of the city by adding black pixels.
+    After, crop it into patches with defined size and overlap.
+
+    Inputs:
+        tif: rasterio object (tif image)
+        shp: geopandas dataframe with the metadata of the scene
+        size: size of the patches
+        overlap: overlap between patches
+
+    Outputs:
+        patches: list of numpy arrays (patches)  
+    """
     # get the boundaries of the scene city
     cities_shp = gpd.read_file("../data/CityBoundaries.shp").to_crs(tif.crs)
     cities_shp["city_name"] = cities_shp.NAME.apply(lambda x : x.lower().replace(" ", "_").replace("-", "_"))
@@ -70,19 +83,17 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
             if np.sum(patches[-1]) == 0:
                 patches.pop()
     
-    if plot_patches:
-        for i, img in enumerate(patches):
-            plt.axis(False)
-            plt.imshow(img, interpolation="nearest")
-            plt.savefig(f"../figures/testing_{i}.png")
-            plt.close()
-    
     return patches
 
 
 def plot_tif_image(filename, save_path=None):
     """
-    Plot the tif image from filename with a really lower resolution. (It can have some artefacts due to resolution reduction)
+    Plot the tif image from filename with a really lower resolution. 
+    (It can change the picture appearence when reducing resolution)
+
+    Inputs:
+        filename: string with the name of the tif file
+        save_path: string with the path to save the image, if None, it will show the image
     """
     im = Image.open("../data/output/unzipped_files/" + filename)
     width, height = im.size
