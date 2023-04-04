@@ -5,37 +5,54 @@ import numpy as np
 import torch
 from torchvision import transforms
 import rasterio
+from PIL import Image
+from tqdm import tqdm
 from handle_tif_images import separate_tif_into_patches
 
+
 class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, imgs):
-        self.data = imgs
-        
+    def __init__(self, filenames):
+        self.filenames = filenames
+        self.preprocess = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                ),
+            ]
+        )
+
     def __len__(self):
-        return len(self.data)
+        return len(self.filenames)
 
     def __getitem__(self, idx):
-        return self.data[idx, :], 0
+        # read and preprocess the image
+        img = Image.open(self.filenames[idx])
+        img = self.preprocess(img)
+        return img, self.filenames[idx]
 
-def get_sample_patches_dataset():
+
+def save_samples_patch():
     ### loading the tifs
     sample_scenes = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
-    patches = []
+    filenames = []
+
     for i, row in sample_scenes.iterrows():
-        tif = rasterio.open(
-            f"../data/output/unzipped_files/{row.tif_filename}"
-        )
+        tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
         row = pd.DataFrame(row).T
-        patches.append(
-            separate_tif_into_patches(tif, row, plot_patches=False)
-        )
-    
-    patches = sum(patches, [])
-    
-    preprocess = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    patches = torch.stack([preprocess(patch) for patch in patches])
-    dataset = PatchesDataset(patches)
+        patches = separate_tif_into_patches(tif, row)
+        filename = row.tif_filename.values[0].replace(".tif", "")
+
+        for j, patch in enumerate(patches):
+            im = Image.fromarray(patch)
+            im.save(f"../data/output/patches/{filename}_{j}.png")
+            filenames.append(f"../data/output/patches/{filename}_{j}.png")
+
+    return filenames
+
+
+def get_sample_patches_dataset(filenames=None):
+    if filenames is None:
+        filenames = save_samples_patch()
+    dataset = PatchesDataset(filenames)
     return dataset
