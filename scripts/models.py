@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,9 +9,304 @@ from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
-from vgg import VGGAutoEncoder, get_configs
+import torchvision
 
 from data import get_sample_patches_dataset
+
+
+class AutoEncoder(nn.Module):
+    """
+    AutoEncoder that uses a pretrained model as the encoder.
+
+    Inputs:
+        latent_dim: int with the dimension of the latent space
+        encoder_arch: string with the name of the pretrained model
+        encoder_lock_weights: bool to lock the weights of the pretrained model
+        decoder_latent_dim_channels: int with the number of channels of the latent space
+        decoder_layers_per_block: list with the number of layers per block
+        decoder_enable_bn: bool to enable batch normalization
+
+    """
+
+    def __init__(
+        self,
+        latent_dim,
+        encoder_arch="vgg16",
+        encoder_lock_weights=True,
+        decoder_latent_dim_channels=128,
+        decoder_layers_per_block=[2, 2, 3, 3, 3],
+        decoder_enable_bn=False,
+    ):
+        super(AutoEncoder, self).__init__()
+        self.encoder = PetrainedEncoder(latent_dim, encoder_arch, encoder_lock_weights)
+        self.decoder = Decoder(
+            latent_dim,
+            decoder_latent_dim_channels,
+            decoder_layers_per_block,
+            decoder_enable_bn,
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return encoded, decoded
+
+
+class PetrainedEncoder(nn.Module):
+    """
+    Convolutional Encoder that uses a pretrained model as a base.
+    It removes the last two layers and add two linear layers to generate the latent space.
+    The pretrained model can be one of the following: vgg16, vgg19, resnet50, resnet152
+
+    Inputs:
+        latent_dim: int with the dimension of the latent space
+        arch: string with the name of the pretrained model
+        lock_weights: bool to lock the weights of the pretrained model
+    """
+
+    def __init__(self, latent_dim, arch="vgg16", lock_weights=True):
+        super(PetrainedEncoder, self).__init__()
+        assert arch in ["vgg16", "vgg19", "resnet50", "resnet152"]
+        self.latent_dim = latent_dim
+        self.arch = arch
+        self.lock_weights = lock_weights
+        self.model = self._get_model()
+
+    def _get_model(self):
+        if self.arch == "vgg16":
+            model = torchvision.models.vgg16(weights="DEFAULT")
+        elif self.arch == "vgg19":
+            model = torchvision.models.vgg19(weights="DEFAULT")
+        elif self.arch == "resnet50":
+            model = torchvision.models.resnet50(weights="DEFAULT")
+        elif self.arch == "resnet152":
+            model = torchvision.models.resnet152(weights="DEFAULT")
+
+        if self.lock_weights:
+            for param in model.parameters():
+                param.requires_grad = False
+
+        output_sizes = {
+            "vgg16": 6272,
+            "vgg19": 6272,
+            "resnet50": 2048,
+            "resnet152": 2048,
+        }
+        model = list(model.children())[:-1]
+        if "vgg" in self.arch:
+            # add a convolutional layer to reduce the number of channels
+            model += [
+                nn.Conv2d(512, 128, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+            ]
+        model += [
+            nn.Flatten(),
+            nn.Linear(output_sizes[self.arch], 4096),
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(4096, self.latent_dim),
+        ]
+        model = nn.Sequential(*model)
+
+        return model
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class Decoder(nn.Module):
+    """
+    Convolutional Decoder. It recieves an 1 dimensional vector, reshape into an image
+    and apply convolutional layers to generate the image of size 224x224x3.
+
+    Code adpted from https://github.com/Horizon2333/imagenet-autoencoder/blob/main/models/vgg.py
+
+    Inputs:
+        latent_dim: int with the dimension of the latent space
+        latent_dim_channels: int with the number of channels of the latent space (must be 128, 256 or 512)
+        layers_per_block: list with the number of layers per block (must have 5 elements)
+        enable_bn: bool to enable batch normalization
+    """
+
+    def __init__(
+        self,
+        latent_dim,
+        latent_dim_channels=128,
+        layers_per_block=[2, 2, 3, 3, 3],
+        enable_bn=False,
+    ):
+        super(Decoder, self).__init__()
+        assert len(layers_per_block) == 5
+        assert latent_dim_channels in [128, 256, 512]
+        self.latent_dim_channels = latent_dim_channels
+        self.fc = nn.Sequential(
+            nn.Linear(latent_dim, 2048),
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(2048, 7 * 7 * latent_dim_channels),
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+        )
+
+        if latent_dim_channels == 512:
+            self.conv1 = DecoderBlock(
+                input_dim=512,
+                output_dim=512,
+                hidden_dim=512,
+                layers=layers_per_block[0],
+                enable_bn=enable_bn,
+            )
+            self.conv2 = DecoderBlock(
+                input_dim=512,
+                output_dim=256,
+                hidden_dim=512,
+                layers=layers_per_block[1],
+                enable_bn=enable_bn,
+            )
+            self.conv3 = DecoderBlock(
+                input_dim=256,
+                output_dim=128,
+                hidden_dim=256,
+                layers=layers_per_block[2],
+                enable_bn=enable_bn,
+            )
+        elif latent_dim_channels == 256:
+            self.conv1 = DecoderBlock(
+                input_dim=256,
+                output_dim=256,
+                hidden_dim=256,
+                layers=layers_per_block[0],
+                enable_bn=enable_bn,
+            )
+            self.conv2 = DecoderBlock(
+                input_dim=256,
+                output_dim=256,
+                hidden_dim=256,
+                layers=layers_per_block[1],
+                enable_bn=enable_bn,
+            )
+            self.conv3 = DecoderBlock(
+                input_dim=256,
+                output_dim=128,
+                hidden_dim=256,
+                layers=layers_per_block[2],
+                enable_bn=enable_bn,
+            )
+        elif latent_dim_channels == 128:
+            self.conv1 = DecoderBlock(
+                input_dim=128,
+                output_dim=128,
+                hidden_dim=128,
+                layers=layers_per_block[0],
+                enable_bn=enable_bn,
+            )
+            self.conv2 = DecoderBlock(
+                input_dim=128,
+                output_dim=128,
+                hidden_dim=128,
+                layers=layers_per_block[1],
+                enable_bn=enable_bn,
+            )
+            self.conv3 = DecoderBlock(
+                input_dim=128,
+                output_dim=128,
+                hidden_dim=128,
+                layers=layers_per_block[2],
+                enable_bn=enable_bn,
+            )
+
+        self.conv4 = DecoderBlock(
+            input_dim=128,
+            output_dim=64,
+            hidden_dim=128,
+            layers=layers_per_block[3],
+            enable_bn=enable_bn,
+        )
+        self.conv5 = DecoderBlock(
+            input_dim=64,
+            output_dim=3,
+            hidden_dim=64,
+            layers=layers_per_block[4],
+            enable_bn=enable_bn,
+        )
+        self.gate = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.fc(x)
+        x = x.view(-1, self.latent_dim_channels, 7, 7)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        x = self.gate(x)
+        return x
+
+
+class DecoderBlock(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, layers, enable_bn=False):
+        super(DecoderBlock, self).__init__()
+        upsample = nn.ConvTranspose2d(
+            in_channels=input_dim, out_channels=hidden_dim, kernel_size=2, stride=2
+        )
+        self.add_module("0 UpSampling", upsample)
+
+        if layers == 1:
+            layer = DecoderLayer(
+                input_dim=input_dim, output_dim=output_dim, enable_bn=enable_bn
+            )
+            self.add_module("1 DecoderLayer", layer)
+        else:
+            for i in range(layers):
+                if i == 0:
+                    layer = DecoderLayer(
+                        input_dim=input_dim, output_dim=hidden_dim, enable_bn=enable_bn
+                    )
+                elif i == (layers - 1):
+                    layer = DecoderLayer(
+                        input_dim=hidden_dim, output_dim=output_dim, enable_bn=enable_bn
+                    )
+                else:
+                    layer = DecoderLayer(
+                        input_dim=hidden_dim, output_dim=hidden_dim, enable_bn=enable_bn
+                    )
+                self.add_module("%d DecoderLayer" % (i + 1), layer)
+
+    def forward(self, x):
+        for name, layer in self.named_children():
+            x = layer(x)
+        return x
+
+
+class DecoderLayer(nn.Module):
+    def __init__(self, input_dim, output_dim, enable_bn):
+        super(DecoderLayer, self).__init__()
+        if enable_bn:
+            self.layer = nn.Sequential(
+                nn.BatchNorm2d(input_dim),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    in_channels=input_dim,
+                    out_channels=output_dim,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                ),
+            )
+        else:
+            self.layer = nn.Sequential(
+                nn.ReLU(inplace=True),
+                nn.Conv2d(
+                    in_channels=input_dim,
+                    out_channels=output_dim,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                ),
+            )
+
+    def forward(self, x):
+        return self.layer(x)
 
 
 class DEC(nn.Module):
@@ -30,18 +326,18 @@ class DEC(nn.Module):
 
     def __init__(
         self,
-        encoder,
+        latent_dim,
         n_clusters=15,
         alpha=1,
         pretrain_epochs=100,
         train_epochs=100,
         plot_results=False,
+        results_dir=None,
         device=None,
     ):
         super().__init__()
-        configs = get_configs(encoder)
-        self.CAE = VGGAutoEncoder(configs=configs)
-        self.embedding_size = 25088
+        self.CAE = AutoEncoder(latent_dim)
+        self.embedding_size = latent_dim
         self.n_clusters = n_clusters
         self.alpha = alpha
         self.pretrain_epochs = pretrain_epochs
@@ -51,7 +347,15 @@ class DEC(nn.Module):
 
         self.criterion = nn.MSELoss()
         self.cluster_criterion = nn.KLDivLoss(size_average=False)
-        self.optimizer = torch.optim.Adam(self.CAE.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, self.CAE.parameters()), lr=1e-3
+        )
+
+        # if exists results dir
+        if results_dir is not None:
+            if not os.path.exists(f"../models/{results_dir}"):
+                os.makedirs(f"../models/{results_dir}")
+            self.results_dir = f"../models/{results_dir}"
 
     def get_centers(self, loader):
         """
@@ -139,7 +443,7 @@ class DEC(nn.Module):
         y = np.concatenate(y)
         return y
 
-    def plot_latent_space(self, loader):
+    def plot_latent_space(self, loader, name=""):
         """
         Plot the latent space using t-SNE, color based on the clusters.
 
@@ -158,8 +462,9 @@ class DEC(nn.Module):
         y = np.concatenate(y)
         embeddings_proj = TSNE(n_components=2).fit_transform(embeddings)
 
-        plt.scatter(embeddings_proj[:, 0], embeddings_proj[:, 1], c=y)
-        plt.show()
+        plt.scatter(embeddings_proj[:, 0], embeddings_proj[:, 1], c=y, cmap="tab10")
+        plt.savefig(os.path.join(self.results_dir, f"{name}.png"))
+        plt.close()
 
     def plot_centers(self):
         """
@@ -168,7 +473,6 @@ class DEC(nn.Module):
         for i in range(self.n_clusters):
             plt.plot(self.centers[i, :].cpu().detach().numpy(), label=f"center {i}")
         plt.legend()
-        plt.show()
 
     def fit(self, loader):
         """
@@ -180,14 +484,24 @@ class DEC(nn.Module):
 
         # Pretrain Autoencoder
         print("Pretraining Autoencoder...")
+        pretraining_losses = []
         for _ in tqdm(range(self.pretrain_epochs)):
+            iter_loss = 0
             for batch, _ in loader:
                 batch = batch.to(self.device)
                 _, reconstruction = self.CAE(batch)
                 rec_loss = self.criterion(reconstruction, batch)
                 rec_loss.backward()
+                iter_loss += rec_loss.item()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+            pretraining_losses.append(iter_loss)
+            plt.plot(pretraining_losses)
+            plt.ylabel("Iter loss")
+            plt.xlabel("Epoch")
+            plt.title("Pretraining losses")
+            plt.savefig(os.path.join(self.results_dir, "pretrain_losses.png"))
+            plt.close()
 
         # Train with clustering loss
         self.get_centers(loader)
@@ -195,12 +509,20 @@ class DEC(nn.Module):
         if self.plot_results:
             # Plot the pretrained latent space and the first centers
             self.eval()
-            self.plot_latent_space(loader)
-            self.plot_centers()
+            self.plot_latent_space(loader, "pretain_latent_space")
+            # self.plot_centers()
+            plt.plot(pretraining_losses)
+            plt.ylabel("Iter loss")
+            plt.xlabel("Epoch")
+            plt.title("Pretraining losses")
+            plt.savefig(os.path.join(self.results_dir, "pretrain_losses.png"))
+            plt.close()
             self.train()
 
         print("Training with clustering loss...")
+        train_losses = []
         for _ in tqdm(range(self.train_epochs)):
+            iter_loss = 0
             for batch, _ in loader:
                 batch = batch.to(self.device)
                 embedding, _ = self.CAE(batch)
@@ -209,34 +531,63 @@ class DEC(nn.Module):
                 loss = self.cluster_criterion(output.log(), target) / output.shape[0]
                 self.cluster_optimizer.zero_grad()
                 loss.backward()
+                iter_loss += loss.item()
                 self.cluster_optimizer.step()
+            train_losses.append(iter_loss)
 
         if self.plot_results:
             # Plot the updated latent space and the updated centers
             self.eval()
-            self.plot_latent_space(loader)
-            self.plot_centers()
-
-
+            self.plot_latent_space(loader, "latent_space")
+            plt.plot(train_losses)
+            plt.ylabel("Iter loss")
+            plt.xlabel("Epoch")
+            plt.title("Training losses")
+            plt.savefig(os.path.join(self.results_dir, "train_losses.png"))
+            plt.close()
+            # self.plot_centers()
+            labels = self.get_clusters(loader)
+            filenames = []
+            for _, f in loader:
+                filenames.append(f)
+            filenames = np.concatenate(filenames)
+            np.save(os.path.join(self.results_dir, "filenames.npy"), filenames)
+            np.save(os.path.join(self.results_dir, "labels.npy"), labels)
+            l, c = np.unique(labels, return_counts=True)
+            plt.bar(l, c)
+            plt.ylabel("Count")
+            plt.xlabel("Cluster")
+            plt.title("Cluster distribution")
+            plt.savefig(os.path.join(self.results_dir, "cluster_distribution.png"))
+            plt.close()
 
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataset = get_sample_patches_dataset()
     print("dataset size:", len(dataset))
-    dl = DataLoader(dataset, batch_size=16)
+    dl = DataLoader(dataset, batch_size=32)
     model = DEC(
-        "vgg16",
-        n_clusters=15,
+        1024,
+        n_clusters=10,
         alpha=1,
-        pretrain_epochs=20,
-        train_epochs=20,
+        pretrain_epochs=25,
+        train_epochs=25,
         plot_results=True,
-        device=device
+        results_dir="DCE_vgg16_results",
+        device=device,
     )
+   
+    encoder = model.CAE.encoder
+    pytorch_trainable_params = sum(
+        p.numel() for p in encoder.parameters() if p.requires_grad
+    )
+    print("Total number of encoder trainable parameters:", pytorch_trainable_params // 1e6)
+    decoder = model.CAE.decoder
+    pytorch_trainable_params = sum(
+        p.numel() for p in decoder.parameters() if p.requires_grad
+    )
+    print("Total number of decoder trainable parameters:", pytorch_trainable_params // 1e6)
+
     model.to(device)
     model.fit(dl)
-
-    centers = model.centers.cpu().detach().numpy()
-    # save centers to npy
-    np.save("centers.npy", centers)
