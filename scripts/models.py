@@ -1,17 +1,17 @@
 import os
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from sklearn.preprocessing import StandardScaler
+
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
+import torch
+import torch.nn as nn
 import torchvision
+from torch.utils.data import DataLoader
 
 from data import get_sample_patches_dataset
+import plotting
 
 
 class AutoEncoder(nn.Module):
@@ -315,18 +315,27 @@ class DEC(nn.Module):
 
 
     Inputs:
-        dims:
+        latent_dim: int with the dimension of the latent space
+        encoder_arch: string with the name of the pretrained model
+        encoder_lock_weights: bool to lock the weights of the pretrained model
+        decoder_latent_dim_channels: int with the number of channels of the latent space
+        decoder_layers_per_block: list with the number of layers per block
         n_clusters: int, number of clusters
         alpha: float, parameter of ...
         pretrain_epochs: int, number of epochs to pretrain the autoencoder
         train_epochs: int, number of epochs to train the model with the clustering loss
         plot_results: bool, if True, plot the latent space and the centers
+        results_dir: string, directory to save the results
         device: torch.device, device to use for training
     """
 
     def __init__(
         self,
         latent_dim,
+        encoder_arch="vgg16",
+        encoder_lock_weights=True,
+        decoder_latent_dim_channels=128,
+        decoder_layers_per_block=[2, 2, 3, 3, 3],
         n_clusters=15,
         alpha=1,
         pretrain_epochs=100,
@@ -336,7 +345,13 @@ class DEC(nn.Module):
         device=None,
     ):
         super().__init__()
-        self.CAE = AutoEncoder(latent_dim)
+        self.CAE = AutoEncoder(
+            latent_dim,
+            encoder_arch,
+            encoder_lock_weights,
+            decoder_latent_dim_channels,
+            decoder_layers_per_block,
+        )
         self.embedding_size = latent_dim
         self.n_clusters = n_clusters
         self.alpha = alpha
@@ -443,36 +458,27 @@ class DEC(nn.Module):
         y = np.concatenate(y)
         return y
 
-    def plot_latent_space(self, loader, name=""):
+    def get_embeddings_labels(self, loader):
         """
-        Plot the latent space using t-SNE, color based on the clusters.
+        Helper function to obtain the embeddings and the labels for a dataset.
 
         Inputs:
             loader: torch.utils.data.DataLoader
         """
         embeddings = []
-        y = []
+        labels = []
+        filenames = []
         with torch.no_grad():
-            for batch, _ in loader:
+            for batch, filename in loader:
                 batch = batch.to(self.device)
-                output = self.CAE(batch)[0]
-                embeddings.append(output.cpu().detach().numpy())
-                y.append(self.get_clusters_batch(batch))
+                embedding, _ = self.CAE(batch)
+                embeddings.append(embedding.cpu().detach().numpy())
+                filenames.append(filename)
+                labels.append(self.get_clusters_batch(batch))
         embeddings = np.concatenate(embeddings, axis=0)
-        y = np.concatenate(y)
-        embeddings_proj = TSNE(n_components=2).fit_transform(embeddings)
-
-        plt.scatter(embeddings_proj[:, 0], embeddings_proj[:, 1], c=y, cmap="tab10")
-        plt.savefig(os.path.join(self.results_dir, f"{name}.png"))
-        plt.close()
-
-    def plot_centers(self):
-        """
-        Plot the centers as a line plot, each line is a center with the dimensions in the x axis.
-        """
-        for i in range(self.n_clusters):
-            plt.plot(self.centers[i, :].cpu().detach().numpy(), label=f"center {i}")
-        plt.legend()
+        labels = np.concatenate(labels)
+        filenames = np.concatenate(filenames)
+        return embeddings, labels, filenames
 
     def fit(self, loader):
         """
@@ -481,7 +487,6 @@ class DEC(nn.Module):
         Inputs:
             loader: torch.utils.data.DataLoader
         """
-
         # Pretrain Autoencoder
         print("Pretraining Autoencoder...")
         pretraining_losses = []
@@ -492,31 +497,27 @@ class DEC(nn.Module):
                 _, reconstruction = self.CAE(batch)
                 rec_loss = self.criterion(reconstruction, batch)
                 rec_loss.backward()
-                iter_loss += rec_loss.item()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+                iter_loss += rec_loss.item()
             pretraining_losses.append(iter_loss)
-            plt.plot(pretraining_losses)
-            plt.ylabel("Iter loss")
-            plt.xlabel("Epoch")
-            plt.title("Pretraining losses")
-            plt.savefig(os.path.join(self.results_dir, "pretrain_losses.png"))
-            plt.close()
 
         # Train with clustering loss
         self.get_centers(loader)
 
         if self.plot_results:
-            # Plot the pretrained latent space and the first centers
             self.eval()
-            self.plot_latent_space(loader, "pretain_latent_space")
-            # self.plot_centers()
-            plt.plot(pretraining_losses)
-            plt.ylabel("Iter loss")
-            plt.xlabel("Epoch")
-            plt.title("Pretraining losses")
-            plt.savefig(os.path.join(self.results_dir, "pretrain_losses.png"))
-            plt.close()
+            embeddings, labels, filenames = self.get_embeddings_labels(loader)
+            plotting.embedding_proj(
+                embeddings,
+                labels,
+                os.path.join(self.results_dir, f"pretrain_latent_space.png"),
+            )
+            plotting.loss_curve(
+                pretraining_losses, os.path.join(self.results_dir, f"pretrain_loss.png")
+            )
+            np.save(os.path.join(self.results_dir, "pretrain_labels.npy"), labels)
+            np.save(os.path.join(self.results_dir, "pretrain_filenames.npy"), filenames)
             self.train()
 
         print("Training with clustering loss...")
@@ -531,63 +532,59 @@ class DEC(nn.Module):
                 loss = self.cluster_criterion(output.log(), target) / output.shape[0]
                 self.cluster_optimizer.zero_grad()
                 loss.backward()
-                iter_loss += loss.item()
                 self.cluster_optimizer.step()
+                iter_loss += loss.item()
             train_losses.append(iter_loss)
 
         if self.plot_results:
             # Plot the updated latent space and the updated centers
             self.eval()
-            self.plot_latent_space(loader, "latent_space")
-            plt.plot(train_losses)
-            plt.ylabel("Iter loss")
-            plt.xlabel("Epoch")
-            plt.title("Training losses")
-            plt.savefig(os.path.join(self.results_dir, "train_losses.png"))
-            plt.close()
-            # self.plot_centers()
-            labels = self.get_clusters(loader)
-            filenames = []
-            for _, f in loader:
-                filenames.append(f)
-            filenames = np.concatenate(filenames)
-            np.save(os.path.join(self.results_dir, "filenames.npy"), filenames)
-            np.save(os.path.join(self.results_dir, "labels.npy"), labels)
-            l, c = np.unique(labels, return_counts=True)
-            plt.bar(l, c)
-            plt.ylabel("Count")
-            plt.xlabel("Cluster")
-            plt.title("Cluster distribution")
-            plt.savefig(os.path.join(self.results_dir, "cluster_distribution.png"))
-            plt.close()
+            embeddings, labels, filenames = self.get_embeddings_labels(loader)
+            plotting.embedding_proj(
+                embeddings,
+                labels,
+                os.path.join(self.results_dir, f"latent_space.png"),
+            )
+            plotting.loss_curve(
+                train_losses, os.path.join(self.results_dir, f"train_loss.png")
+            )
+            np.save(os.path.join(self.results_dir, "train_labels.npy"), labels)
+            np.save(os.path.join(self.results_dir, "train_filenames.npy"), filenames)
+            # save model
 
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset = get_sample_patches_dataset()
-    print("dataset size:", len(dataset))
-    dl = DataLoader(dataset, batch_size=32)
+    filenames = os.listdir("../data/output/patches")
+    filenames = [os.path.join("../data/output/patches", f) for f in filenames]
+    dataset = get_sample_patches_dataset(filenames=filenames)
+    print("Dataset Size:", len(dataset))
+    dl = DataLoader(dataset, batch_size=32, shuffle=True)
     model = DEC(
-        1024,
+        latent_dim=1024,
+        encoder_arch="resnet152",
         n_clusters=10,
         alpha=1,
-        pretrain_epochs=25,
-        train_epochs=25,
+        pretrain_epochs=100,
+        train_epochs=100,
         plot_results=True,
-        results_dir="DCE_vgg16_results",
+        results_dir="DEC_resnet152_results",
         device=device,
     )
-   
+
     encoder = model.CAE.encoder
     pytorch_trainable_params = sum(
         p.numel() for p in encoder.parameters() if p.requires_grad
     )
-    print("Total number of encoder trainable parameters:", pytorch_trainable_params // 1e6)
+    print("Millions of encoder trainable parameters:", pytorch_trainable_params // 1e6)
     decoder = model.CAE.decoder
     pytorch_trainable_params = sum(
         p.numel() for p in decoder.parameters() if p.requires_grad
     )
-    print("Total number of decoder trainable parameters:", pytorch_trainable_params // 1e6)
+    print("Millions of decoder trainable parameters:", pytorch_trainable_params // 1e6)
 
     model.to(device)
     model.fit(dl)
+
+    # Save model
+    torch.save(model.state_dict(), "../models/DEC_resnet152_results/DEC_resnet152.pth")
