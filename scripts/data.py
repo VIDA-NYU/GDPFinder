@@ -26,7 +26,6 @@ class PatchesDataset(torch.utils.data.Dataset):
         return len(self.filenames)
 
     def __getitem__(self, idx):
-        # read and preprocess the image
         img = Image.open(self.filenames[idx])
         img = self.preprocess(img)
         return img, self.filenames[idx]
