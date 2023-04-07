@@ -11,7 +11,7 @@ import torchvision
 from torch.utils.data import DataLoader
 
 from data import get_sample_patches_dataset
-import plotting
+import utils as utils
 
 
 class AutoEncoder(nn.Module):
@@ -102,8 +102,8 @@ class PetrainedEncoder(nn.Module):
         model += [
             nn.Flatten(),
             nn.Linear(output_sizes[self.arch], 4096),
-            nn.ReLU(),
             nn.Dropout(p=0.5),
+            nn.ReLU(),
             nn.Linear(4096, self.latent_dim),
         ]
         model = nn.Sequential(*model)
@@ -141,11 +141,11 @@ class Decoder(nn.Module):
         self.latent_dim_channels = latent_dim_channels
         self.fc = nn.Sequential(
             nn.Linear(latent_dim, 2048),
-            nn.ReLU(),
             nn.Dropout(p=0.5),
+            nn.ReLU(),
             nn.Linear(2048, 7 * 7 * latent_dim_channels),
-            nn.ReLU(),
             nn.Dropout(p=0.5),
+            nn.ReLU(),
         )
 
         if latent_dim_channels == 512:
@@ -508,12 +508,12 @@ class DEC(nn.Module):
         if self.plot_results:
             self.eval()
             embeddings, labels, filenames = self.get_embeddings_labels(loader)
-            plotting.embedding_proj(
+            utils.embedding_proj(
                 embeddings,
                 labels,
                 os.path.join(self.results_dir, f"pretrain_latent_space.png"),
             )
-            plotting.loss_curve(
+            utils.loss_curve(
                 pretraining_losses, os.path.join(self.results_dir, f"pretrain_loss.png")
             )
             np.save(os.path.join(self.results_dir, "pretrain_labels.npy"), labels)
@@ -540,12 +540,12 @@ class DEC(nn.Module):
             # Plot the updated latent space and the updated centers
             self.eval()
             embeddings, labels, filenames = self.get_embeddings_labels(loader)
-            plotting.embedding_proj(
+            utils.embedding_proj(
                 embeddings,
                 labels,
                 os.path.join(self.results_dir, f"latent_space.png"),
             )
-            plotting.loss_curve(
+            utils.loss_curve(
                 train_losses, os.path.join(self.results_dir, f"train_loss.png")
             )
             np.save(os.path.join(self.results_dir, "train_labels.npy"), labels)
@@ -559,16 +559,16 @@ if __name__ == "__main__":
     filenames = [os.path.join("../data/output/patches", f) for f in filenames]
     dataset = get_sample_patches_dataset(filenames=filenames)
     print("Dataset Size:", len(dataset))
-    dl = DataLoader(dataset, batch_size=32, shuffle=True)
+    dl = DataLoader(dataset, batch_size=64, shuffle=True)
     model = DEC(
-        latent_dim=1024,
-        encoder_arch="resnet152",
-        n_clusters=10,
+        latent_dim=128,
+        encoder_arch="resnet50",
+        n_clusters=5,
         alpha=1,
-        pretrain_epochs=100,
-        train_epochs=100,
+        pretrain_epochs=10,
+        train_epochs=10,
         plot_results=True,
-        results_dir="DEC_resnet152_results",
+        results_dir="DEC_resnet50_results",
         device=device,
     )
 
@@ -587,4 +587,4 @@ if __name__ == "__main__":
     model.fit(dl)
 
     # Save model
-    torch.save(model.state_dict(), "../models/DEC_resnet152_results/DEC_resnet152.pth")
+    torch.save(model.state_dict(), "../models/DEC_resnet50_results/DEC_resnet50.pth")
