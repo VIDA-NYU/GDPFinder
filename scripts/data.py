@@ -19,8 +19,10 @@ class PatchesDataset(torch.utils.data.Dataset):
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                 ),
+                transforms.Resize((32, 32)),
             ]
         )
+
 
     def __len__(self):
         return len(self.filenames)
@@ -55,3 +57,8 @@ def get_sample_patches_dataset(filenames=None):
         filenames = save_samples_patch()
     dataset = PatchesDataset(filenames)
     return dataset
+
+if __name__ == "__main__":
+    dataset = get_sample_patches_dataset()
+    print(len(dataset))
+    print(dataset[0][0].shape)
