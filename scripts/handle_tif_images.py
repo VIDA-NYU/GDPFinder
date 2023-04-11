@@ -1,15 +1,11 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from shapely.geometry import Point
-import rasterio
+from shapely.geometry import Polygon, MultiPolygon
 from rasterio.mask import mask
-from rasterio.plot import show
 import matplotlib.pyplot as plt
-from matplotlib import cm
 from PIL import Image
 import os
-from sklearn.feature_extraction import image
 
 
 def create_files_df():
@@ -65,7 +61,10 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8):
     city = shp.city.values[0]
     state = shp.state.values[0]
     geo = cities_shp[(cities_shp.city_name == city) & (cities_shp.state_name == state)].geometry.values[0]
-    
+    if type(geo) == Polygon:
+        geo = [geo]
+        geo = MultiPolygon(geo)
+
     # mask it
     out_image, _ = mask(tif, geo, filled=True)
     
