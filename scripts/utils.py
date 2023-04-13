@@ -1,11 +1,12 @@
 import os
 import numpy as np
 import torch
+from torchvision import transforms
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 
 
-def get_embeddings_and_reconstruction(loader, model, device):
+def get_embeddings(loader, model, device):
     """
     Helper function to obtain the embeddings for a dataset.
 
@@ -13,16 +14,13 @@ def get_embeddings_and_reconstruction(loader, model, device):
         loader: torch.utils.data.DataLoader
     """
     embeddings = []
-    reconstructions = []
     with torch.no_grad():
         for batch, _ in loader:
             batch = batch.to(device)
-            embedding, reconstruction = model(batch)
+            embedding, _ = model(batch)
             embeddings.append(embedding.cpu().detach().numpy())
-            reconstructions.append(reconstruction.cpu().detach().numpy())
     embeddings = np.concatenate(embeddings, axis=0)
-    reconstructions = np.concatenate(reconstructions, axis=0)
-    return embeddings, reconstructions
+    return embeddings
 
 
 def plot_embedding_proj(embeddings, labels=None, dir=None):
@@ -66,7 +64,12 @@ def plot_loss_curve(losses_log, dir=None):
         plt.show()
 
 
-def plot_reconstruction(model, dl, device, n_samples=3, dir=None):
+def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
+    # inv_normalize = transforms.Normalize(
+    #    mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
+    #    std=[1/0.229, 1/0.224, 1/0.225]
+    # )
+
     imgs = []
     reconstructions = []
     k = 0
@@ -76,6 +79,7 @@ def plot_reconstruction(model, dl, device, n_samples=3, dir=None):
             imgs.append(img.cpu().detach().numpy())
             img = img.to(device)
             reconstruction = model(img)[1]
+            # reconstruction = inv_normalize(reconstruction)
             reconstructions.append(reconstruction.cpu().detach().numpy())
             k += 1
             if k == n_samples:
@@ -85,7 +89,6 @@ def plot_reconstruction(model, dl, device, n_samples=3, dir=None):
 
     imgs = np.concatenate(imgs, axis=0)
     reconstructions = np.concatenate(reconstructions, axis=0)
-
 
     fig, axs = plt.subplots(nrows=n_samples, ncols=2, figsize=(10, 10))
     for i in range(n_samples):
@@ -98,15 +101,15 @@ def plot_reconstruction(model, dl, device, n_samples=3, dir=None):
         plt.show()
 
 
-def save_reconstruction_results(losses_log, dl, model, device, dir=None):
+def save_reconstruction_results(losses_log, batches_log, dl, model, device, dir=None):
     # verify if the directory exists
     if dir is not None and not os.path.exists(dir):
         os.mkdir(dir)
 
     plot_loss_curve(losses_log, dir=dir + "loss_curve.png")
-    embeddings, reconstructions = get_embeddings_and_reconstruction(
-        dl, model, device
-    )
+    plot_loss_curve(batches_log, dir=dir + "batch_loss_curve.png")
+    embeddings = get_embeddings(dl, model, device)
+    embeddings = embeddings.reshape(embeddings.shape[0], -1)
     plot_embedding_proj(embeddings, dir=dir + "embedding.png")
     plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
     torch.save(model.state_dict(), dir + "model.pt")
