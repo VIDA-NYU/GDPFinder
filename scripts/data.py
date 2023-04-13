@@ -1,27 +1,23 @@
-import os
-import geopandas as gpd
 import pandas as pd
-import numpy as np
+import geopandas as gpd
+from PIL import Image
+import rasterio
 import torch
 from torchvision import transforms
-import rasterio
-from PIL import Image
-from tqdm import tqdm
+
 from handle_tif_images import separate_tif_into_patches
 
 
 class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames):
+    def __init__(self, filenames, resize = None):
         self.filenames = filenames
-        self.preprocess = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-                transforms.Resize((32, 32)),
-            ]
-        )
+        self.preprocess = [transforms.ToTensor()]
+        if resize is not None:
+            self.preprocess.append(transforms.Resize(resize))
+        # self.preprocess.append(transforms.Normalize(
+        #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        # ))
+        self.preprocess = transforms.Compose(self.preprocess)
 
 
     def __len__(self):
@@ -48,14 +44,15 @@ def save_samples_patch():
             im = Image.fromarray(patch)
             im.save(f"../data/output/patches/{filename}_{j}.png")
             filenames.append(f"../data/output/patches/{filename}_{j}.png")
+            im.close()
 
     return filenames
 
 
-def get_sample_patches_dataset(filenames=None):
+def get_sample_patches_dataset(filenames=None, resize=None):
     if filenames is None:
         filenames = save_samples_patch()
-    dataset = PatchesDataset(filenames)
+    dataset = PatchesDataset(filenames, resize=resize)
     return dataset
 
 if __name__ == "__main__":
