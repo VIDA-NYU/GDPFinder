@@ -40,7 +40,7 @@ def create_files_df():
     return gpd.GeoDataFrame(df)
 
 
-def separate_tif_into_patches(tif, shp, size=224, overlap=8):
+def separate_tif_into_patches(tif, shp, size=224, overlap=0):
     """
     Mask the tif image with the boundaries of the city by adding black pixels.
     After, crop it into patches with defined size and overlap.

@@ -1,11 +1,10 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 import torchvision
 from torch.utils.data import DataLoader
@@ -14,12 +13,68 @@ from data import get_sample_patches_dataset
 import utils as utils
 
 
+class SmallAutoEncoder(nn.Module):
+    def __init__(self, latent_dim = 64):
+        super(SmallAutoEncoder, self).__init__()
+        self.encoder_cnn = nn.Sequential(
+            nn.Conv2d(3, 8, 3, stride=2, padding=1),
+            nn.ReLU(True),
+            nn.Conv2d(8, 16, 3, stride=2, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(True),
+            nn.Conv2d(16, 32, 3, stride=2, padding=0),
+            nn.ReLU(True)
+        )
+        
+        ### Flatten layer
+        self.flatten = nn.Flatten(start_dim=1)
+        ### Linear section
+        self.encoder_lin = nn.Sequential(
+            nn.Linear(3 * 3 * 32, 128),
+            nn.ReLU(True),
+            nn.Linear(128, latent_dim)
+        )
+
+        self.decoder_lin = nn.Sequential(
+            nn.Linear(latent_dim, 128),
+            nn.ReLU(True),
+            nn.Linear(128, 3 * 3 * 32),
+            nn.ReLU(True)
+        )
+
+        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(32, 3, 3))
+
+        self.decoder_conv = nn.Sequential(
+            nn.ConvTranspose2d(32, 16, 3, stride=2, output_padding=0),
+            nn.BatchNorm2d(16),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(16, 8, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(8),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(8, 3, 3, stride=2, padding=1, output_padding=1)
+        )
+
+
+    def forward(self, x):
+        # encode 
+        x = self.encoder_cnn(x)
+        x = self.flatten(x)
+        x = self.encoder_lin(x)
+        encoded = x
+
+        x = self.decoder_lin(x)
+        x = self.unflatten(x)
+        x = self.decoder_conv(x)
+        decoded = torch.sigmoid(x)
+        return encoded, decoded
+
+
 class AutoEncoder(nn.Module):
     """
     AutoEncoder that uses a pretrained model as the encoder.
 
     Inputs:
-        latent_dim: int with the dimension of the latent space
+        latent_dim: int with the dimension of the latent space !!! (must be a multiple of 49) !!!
         encoder_arch: string with the name of the pretrained model
         encoder_lock_weights: bool to lock the weights of the pretrained model
         decoder_latent_dim_channels: int with the number of channels of the latent space
@@ -38,10 +93,11 @@ class AutoEncoder(nn.Module):
         decoder_enable_bn=False,
     ):
         super(AutoEncoder, self).__init__()
+        #assert latent_dim % 49 == 0
         self.encoder = PetrainedEncoder(latent_dim, encoder_arch, encoder_lock_weights)
         self.decoder = Decoder(
             latent_dim,
-            decoder_latent_dim_channels,
+            #decoder_latent_dim_channels,
             decoder_layers_per_block,
             decoder_enable_bn,
         )
@@ -68,6 +124,7 @@ class PetrainedEncoder(nn.Module):
         super(PetrainedEncoder, self).__init__()
         assert arch in ["vgg16", "vgg19", "resnet50", "resnet152"]
         self.latent_dim = latent_dim
+        #self.latent_channels = latent_dim // 49
         self.arch = arch
         self.lock_weights = lock_weights
         self.model = self._get_model()
@@ -86,30 +143,36 @@ class PetrainedEncoder(nn.Module):
             for param in model.parameters():
                 param.requires_grad = False
 
-        output_sizes = {
-            "vgg16": 6272,
-            "vgg19": 6272,
-            "resnet50": 2048,
-            "resnet152": 2048,
-        }
-        model = list(model.children())[:-1]
         if "vgg" in self.arch:
-            # add a convolutional layer to reduce the number of channels
+            model = list(model.children())[:-1]
             model += [
-                nn.Conv2d(512, 128, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
                 nn.ReLU(),
+                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(1, -1),
+                nn.Linear(32 * 3 * 3, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.latent_dim),
             ]
-        model += [
-            nn.Flatten(),
-            nn.Linear(output_sizes[self.arch], 4096),
-            nn.Dropout(p=0.5),
-            nn.ReLU(),
-            nn.Linear(4096, self.latent_dim),
-        ]
+        elif "resnet" in self.arch:
+            model = list(model.children())[:-2]
+            model += [
+                nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(1, -1),
+                nn.Linear(32 * 3 * 3, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.latent_dim),
+            ]
+
         model = nn.Sequential(*model)
-
         return model
-
+    
     def forward(self, x):
         return self.model(x)
 
@@ -122,7 +185,7 @@ class Decoder(nn.Module):
     Code adpted from https://github.com/Horizon2333/imagenet-autoencoder/blob/main/models/vgg.py
 
     Inputs:
-        latent_dim: int with the dimension of the latent space
+        latent_dim: int with the dimension of the latent space !!! (must be a multiple of 49) !!!
         latent_dim_channels: int with the number of channels of the latent space (must be 128, 256 or 512)
         layers_per_block: list with the number of layers per block (must have 5 elements)
         enable_bn: bool to enable batch normalization
@@ -131,90 +194,45 @@ class Decoder(nn.Module):
     def __init__(
         self,
         latent_dim,
-        latent_dim_channels=128,
+        #latent_dim_channels=128,
         layers_per_block=[2, 2, 3, 3, 3],
         enable_bn=False,
     ):
         super(Decoder, self).__init__()
+        #assert latent_dim % 49 == 0
         assert len(layers_per_block) == 5
-        assert latent_dim_channels in [128, 256, 512]
-        self.latent_dim_channels = latent_dim_channels
+        #assert latent_dim_channels in [128, 256, 512]
+        self.latent_dim = latent_dim
+        #self.latent_channels = latent_dim // 49
+
+        #self.latent_dim_channels = latent_dim_channels
         self.fc = nn.Sequential(
-            nn.Linear(latent_dim, 2048),
-            nn.Dropout(p=0.5),
+            nn.Linear(latent_dim, 256),
             nn.ReLU(),
-            nn.Linear(2048, 7 * 7 * latent_dim_channels),
-            nn.Dropout(p=0.5),
+            nn.Linear(256, 7 * 7 * 8),
             nn.ReLU(),
         )
-
-        if latent_dim_channels == 512:
-            self.conv1 = DecoderBlock(
-                input_dim=512,
-                output_dim=512,
-                hidden_dim=512,
+        self.conv1 = DecoderBlock(
+                input_dim=8,
+                output_dim=128,
+                hidden_dim=64,
                 layers=layers_per_block[0],
                 enable_bn=enable_bn,
-            )
-            self.conv2 = DecoderBlock(
-                input_dim=512,
-                output_dim=256,
-                hidden_dim=512,
-                layers=layers_per_block[1],
-                enable_bn=enable_bn,
-            )
-            self.conv3 = DecoderBlock(
-                input_dim=256,
-                output_dim=128,
-                hidden_dim=256,
-                layers=layers_per_block[2],
-                enable_bn=enable_bn,
-            )
-        elif latent_dim_channels == 256:
-            self.conv1 = DecoderBlock(
-                input_dim=256,
-                output_dim=256,
-                hidden_dim=256,
-                layers=layers_per_block[0],
-                enable_bn=enable_bn,
-            )
-            self.conv2 = DecoderBlock(
-                input_dim=256,
-                output_dim=256,
-                hidden_dim=256,
-                layers=layers_per_block[1],
-                enable_bn=enable_bn,
-            )
-            self.conv3 = DecoderBlock(
-                input_dim=256,
-                output_dim=128,
-                hidden_dim=256,
-                layers=layers_per_block[2],
-                enable_bn=enable_bn,
-            )
-        elif latent_dim_channels == 128:
-            self.conv1 = DecoderBlock(
-                input_dim=128,
-                output_dim=128,
-                hidden_dim=128,
-                layers=layers_per_block[0],
-                enable_bn=enable_bn,
-            )
-            self.conv2 = DecoderBlock(
-                input_dim=128,
-                output_dim=128,
-                hidden_dim=128,
-                layers=layers_per_block[1],
-                enable_bn=enable_bn,
-            )
-            self.conv3 = DecoderBlock(
-                input_dim=128,
-                output_dim=128,
-                hidden_dim=128,
-                layers=layers_per_block[2],
-                enable_bn=enable_bn,
-            )
-
+        )
+        self.conv2 = DecoderBlock(
+            input_dim=128,
+            output_dim=256,
+            hidden_dim=256,
+            layers=layers_per_block[1],
+            enable_bn=enable_bn,
+        )
+        self.conv3 = DecoderBlock(
+            input_dim=256,
+            output_dim=128,
+            hidden_dim=128,
+            layers=layers_per_block[2],
+            enable_bn=enable_bn,
+        )
         self.conv4 = DecoderBlock(
             input_dim=128,
             output_dim=64,
@@ -233,7 +251,7 @@ class Decoder(nn.Module):
 
     def forward(self, x):
         x = self.fc(x)
-        x = x.view(-1, self.latent_dim_channels, 7, 7)
+        x = x.view(-1, 8, 7, 7)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
