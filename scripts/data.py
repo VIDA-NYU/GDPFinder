@@ -1,5 +1,7 @@
+import numpy as np
 import pandas as pd
 import geopandas as gpd
+import os
 from PIL import Image
 import rasterio
 import torch
@@ -9,7 +11,7 @@ from handle_tif_images import separate_tif_into_patches
 
 
 class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames, resize = None):
+    def __init__(self, filenames, resize=None):
         self.filenames = filenames
         self.preprocess = [transforms.ToTensor()]
         if resize is not None:
@@ -18,7 +20,6 @@ class PatchesDataset(torch.utils.data.Dataset):
         #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         # ))
         self.preprocess = transforms.Compose(self.preprocess)
-
 
     def __len__(self):
         return len(self.filenames)
@@ -54,6 +55,14 @@ def get_sample_patches_dataset(filenames=None, resize=None):
         filenames = save_samples_patch()
     dataset = PatchesDataset(filenames, resize=resize)
     return dataset
+
+
+def get_filenames():
+    filenames = os.listdir("../data/output/patches")
+    filenames = [os.path.join("../data/output/patches", f) for f in filenames]
+    np.random.shuffle(filenames)
+    return filenames
+
 
 if __name__ == "__main__":
     dataset = get_sample_patches_dataset()
