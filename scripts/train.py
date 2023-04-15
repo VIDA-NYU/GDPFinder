@@ -12,7 +12,7 @@ def train_reconstruction(
             optimizer.zero_grad()  
             rec_loss.backward()
             optimizer.step()
-            iter_loss += rec_loss.item()
+            iter_loss += rec_loss.item() / batch.shape[0]
             batches_log.append(rec_loss.item())
         losses_log.append(iter_loss)
 
@@ -32,7 +32,7 @@ def train_clustering(model, loader, loss, optimizer, device, epochs=100, verbose
             batch = batch.to(device)
             embedding, output, target = model(batch)
             target = target.detach()
-            cluster_loss = loss(output.log(), target) / output.shape[0]
+            cluster_loss = loss(output.log(), target) #/ output.shape[0]
             optimizer.zero_grad()
             cluster_loss.backward()
             optimizer.step()

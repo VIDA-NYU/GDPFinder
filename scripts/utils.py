@@ -4,6 +4,7 @@ import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
 
 
 def get_embeddings(loader, model, device):
@@ -17,10 +18,19 @@ def get_embeddings(loader, model, device):
     with torch.no_grad():
         for batch, _ in loader:
             batch = batch.to(device)
-            embedding, _ = model(batch)
+            embedding = model(batch)[0]
             embeddings.append(embedding.cpu().detach().numpy())
     embeddings = np.concatenate(embeddings, axis=0)
     return embeddings
+
+
+def cluster_embeddings(embeddings, n_clusters):
+    cl = KMeans(n_clusters=n_clusters, n_init=20).fit(embeddings)
+    return cl.cluster_centers_
+
+
+def cluster_embeddings_kmeans(embeddings, n_clusters):
+    return
 
 
 def plot_embedding_proj(embeddings, labels=None, dir=None):
@@ -101,7 +111,9 @@ def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
         plt.show()
 
 
-def save_reconstruction_results(losses_log, batches_log, dl, model, device, dir=None):
+def save_reconstruction_results(
+    mode, losses_log, batches_log, dl, model, device, dir=None
+):
     # verify if the directory exists
     if dir is not None and not os.path.exists(dir):
         os.mkdir(dir)
@@ -110,6 +122,10 @@ def save_reconstruction_results(losses_log, batches_log, dl, model, device, dir=
     plot_loss_curve(batches_log, dir=dir + "batch_loss_curve.png")
     embeddings = get_embeddings(dl, model, device)
     embeddings = embeddings.reshape(embeddings.shape[0], -1)
-    plot_embedding_proj(embeddings, dir=dir + "embedding.png")
-    plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
+    if mode == "cluster":
+        labels = model.get_clusters(dl, device)
+        plot_embedding_proj(embeddings, labels=labels, dir=dir + "embedding.png")
+    elif mode == "reconstruction":
+        plot_embedding_proj(embeddings, dir=dir + "embedding.png")
+    # plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
     torch.save(model.state_dict(), dir + "model.pt")
