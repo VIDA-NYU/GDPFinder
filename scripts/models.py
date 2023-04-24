@@ -312,76 +312,103 @@ class DecoderLayer(nn.Module):
 
 
 class DEC(nn.Module):
-    """
-    Deep Embedding Clustering model, uses the DEC_ConvAutoencoder as internal network
+    def __init__(
+        self, n_clusters, embedding_dim, encoder, cluster_centers=None, alpha=1.0
+    ):
+        """
+        Module which holds all the moving parts of the DEC algorithm, as described in
+        Xie/Girshick/Farhadi; this includes the AutoEncoder stage and the ClusterAssignment stage.
 
-
-    Inputs:
-        encoder: encoder module
-        cluster_centers: torch.tensor, shape (n_clusters, embedding_size)
-        alpha: float, parameter of ...
-    """
-
-    def __init__(self, encoder, cluster_centers, alpha=1.0):
-        super(DEC).__init__()
+        Inputs:
+            n_clusters: int, number of clusters
+            embedding_dim, encoder part of the AutoEncoder
+            cluster_centers: torch.tensor, shape (n_clusters, embedding_dim), initial cluster centers
+            alpha: float, parameter of the t-distribution
+        """
+        super(DEC, self).__init__()
         self.encoder = encoder
+        self.embedding_dim = embedding_dim
+        self.cluster_number = n_clusters
         self.alpha = alpha
-        self.cluster_layer = ClusterLayer(cluster_centers, self.alpha)
-
-    def target_distribution(self, q_):
-        """
-        Obtain the distribution of the clusters based on the soft assignment.
-
-        Inputs:
-            q_: torch.tensor, shape (batch_size, n_clusters)
-        """
-        weight = (q_**2) / torch.sum(q_, 0)
-        return (weight.t() / torch.sum(weight, 1)).t()
-
-    def get_clusters(self, embedding):
-        """
-        Helper function to obtain the cluster assignment for a batch of data.
-
-        Inputs:
-            batch: torch.tensor, shape (batch_size, embedding_size)
-        """
-        output = self.cluster_layer(embedding)
-        return output.max(1)[1]
-
-    def forward(self, x):
-        embedding = self.encoder(x)
-        output = self.cluster_layer(embedding)
-        return output
-
-
-class ClusterLayer(nn.Module):
-    """
-    For a given embedding, compute the soft assignment of the clusters
-    based on the distance to the centers.
-
-    Inputs:
-        embedding: torch.tensor, shape (batch_size, embedding_size)
-    """
-
-    def __init__(self, cluster_centers, alpha=1.0):
-        super(ClusterLayer).__init__()
-        self.alpha = alpha
-        self.centers = nn.Parameter(
-            torch.tensor(cluster_centers, dtype=torch.float32),
-            requires_grad=True,
+        self.assignment = ClusterAssignment(
+            n_clusters, embedding_dim, alpha, cluster_centers
         )
 
-    def forward(self, x):
+    def forward(self, batch):
         """
-        For a given embedding, compute the soft assignment of the clusters
+        Compute the cluster assignment using the ClusterAssignment after running the batch
+        through the encoder part of the associated AutoEncoder module.
 
         Inputs:
-            x: torch.tensor, shape (batch_size, embedding_size)
+            batch: torch.tensor, shape (batch_size, embedding_dim)
+
+        Outputs:
+            torch.tensor, shape (batch_size, n_clusters)
         """
-        norm_squared = torch.sum((x.unsqueeze(1) - self.centers) ** 2, 2)
+        return self.assignment(self.encoder(batch))
+
+
+class ClusterAssignment(nn.Module):
+    def __init__(
+        self,
+        n_clusters,
+        embedding_dim,
+        alpha=1,
+        cluster_centers=None,
+    ):
+        """
+        Module to handle the soft assignment, for a description see in 3.1.1. in Xie/Girshick/Farhadi,
+        where the Student's t-distribution is used measure similarity between feature vector and each
+        cluster centroid.
+
+        Inputs:
+            n_clusters - int, number of clusters
+            embedding_dimension - int, dimension of the embedding
+            alpha - float, parameter of the t-distribution
+            cluster_centers - torch.tensor, shape (n_clusters, embedding_size)
+
+        """
+        super(ClusterAssignment, self).__init__()
+        self.embedding_dim = embedding_dim
+        self.n_clusters = n_clusters
+        self.alpha = alpha
+        if cluster_centers is None:
+            initial_cluster_centers = torch.zeros(
+                self.n_clusters, self.embedding_dim, dtype=torch.float
+            )
+            nn.init.xavier_uniform_(initial_cluster_centers)
+        else:
+            initial_cluster_centers = cluster_centers
+        self.cluster_centers = nn.Parameter(initial_cluster_centers)
+
+    def forward(self, batch):
+        """
+        Compute the soft assignment for a batch of feature vectors, returning a batch of assignments
+        for each cluster.
+
+        Inputs:
+            batch - torch.tensor, shape (batch_size, embedding_size)
+
+        Outputs:
+            torch.tensor, shape (batch_size, n_clusters)
+        """
+        norm_squared = torch.sum((batch.unsqueeze(1) - self.cluster_centers) ** 2, 2)
         numerator = 1.0 / (1.0 + (norm_squared / self.alpha))
         power = float(self.alpha + 1) / 2
         numerator = numerator**power
-        # soft assignment using t-distribution
-        t_dist = numerator / torch.sum(numerator, dim=1, keepdim=True)
-        return t_dist
+        return numerator / torch.sum(numerator, dim=1, keepdim=True)
+
+
+def target_distribution(batch):
+    """
+    Compute the target distribution p_ij, given the batch (q_ij), as in 3.1.3 Equation 3 of
+    Xie/Girshick/Farhadi; this is used the KL-divergence loss function.
+
+    Inputs:
+        batch - [batch size, number of clusters] tensor of cluster assigments
+
+    Outputs:
+        [batch size, number of clusters] tensor of target distribution
+    """
+    weight = (batch**2) / torch.sum(batch, 0)
+    return (weight.t() / torch.sum(weight, 1)).t()

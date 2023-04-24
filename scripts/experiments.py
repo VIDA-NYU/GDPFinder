@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from data import get_sample_patches_dataset, get_filenames
 from models import AutoEncoder, SmallAutoEncoder, DEC
 from train import train_reconstruction, train_clustering
-from utils import save_reconstruction_results
+from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
 
 
 def reconstruction_experiment():
@@ -41,7 +41,13 @@ def reconstruction_experiment():
         model, dl, loss, optimizer, device, epochs=20
     )
     save_reconstruction_results(
-        "reconstruction", losses_log, batches_log, dl, model, device, dir="../models/AE_small/"
+        "reconstruction",
+        losses_log,
+        batches_log,
+        dl,
+        model,
+        device,
+        dir="../models/AE_small/",
     )
 
 
@@ -49,7 +55,7 @@ def clustering_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filenames = get_filenames()[:1024]
     dataset = get_sample_patches_dataset(filenames=filenames, resize=(28, 28))
-    dl = DataLoader(dataset, batch_size=256) #, shuffle=True)
+    dl = DataLoader(dataset, batch_size=256)  # , shuffle=True)
 
     print("Training AutoEncoder ...")
     print("===================================")
@@ -57,42 +63,40 @@ def clustering_experiment():
 
     model_autoencoder = SmallAutoEncoder(64).to(device)
     model_autoencoder.load_state_dict(torch.load("../models/AE_small/model.pt"))
+    model_autoencoder.eval()
+    embeddings = get_embeddings(model_autoencoder, dl, device)
+    centers = cluster_embeddings(embeddings, 10)
     encoder = model_autoencoder.encoder
 
     model = DEC(
-        encoder=encoder,
-        latent_dim=64,
-        n_clusters=10,
+        n_clusters=10, embedding_dim=64, encoder=encoder, cluster_centers=centers
     )
+    model.to(device)
 
     print(
         f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:d}M"
     )
 
-    model.to(device)
-    model.get_centers(dl, device)
-
     loss = nn.KLDivLoss(size_average=False)
 
-    optimizer = torch.optim.SGD(
-        params=list(model.parameters()), lr=0.01, momentum=0.9
-    )
-
-    optimizer = torch.optim.Adam(
-        params=list(model.parameters()), lr=0.001
-    )
+    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.1, momentum=0.9)
 
     losses_log, batches_log = train_clustering(
         model, dl, loss, optimizer, device, epochs=10
     )
 
     save_reconstruction_results(
-        "cluster", losses_log, batches_log, dl, model, device, dir="../models/DEC_small/"
+        "cluster",
+        losses_log,
+        batches_log,
+        dl,
+        model,
+        device,
+        dir="../models/DEC_small/",
     )
-
 
 
 if __name__ == "__main__":
     np.random.seed(42)
-    #reconstruction_experiment()
+    # reconstruction_experiment()
     clustering_experiment()

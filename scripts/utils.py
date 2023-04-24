@@ -29,10 +29,6 @@ def cluster_embeddings(embeddings, n_clusters):
     return cl.cluster_centers_
 
 
-def cluster_embeddings_kmeans(embeddings, n_clusters):
-    return
-
-
 def plot_embedding_proj(embeddings, labels=None, dir=None):
     """
     Plot the latent space using t-SNE, color based on the clusters.
