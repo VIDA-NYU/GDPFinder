@@ -53,7 +53,7 @@ def reconstruction_experiment():
 
 def clustering_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = get_filenames()[:1024]
+    filenames = get_filenames()
     dataset = get_sample_patches_dataset(filenames=filenames, resize=(28, 28))
     dl = DataLoader(dataset, batch_size=256)  # , shuffle=True)
 
@@ -64,8 +64,8 @@ def clustering_experiment():
     model_autoencoder = SmallAutoEncoder(64).to(device)
     model_autoencoder.load_state_dict(torch.load("../models/AE_small/model.pt"))
     model_autoencoder.eval()
-    embeddings = get_embeddings(model_autoencoder, dl, device)
-    centers = cluster_embeddings(embeddings, 10)
+    embeddings = get_embeddings(dl, model_autoencoder, device)
+    centers = torch.tensor(cluster_embeddings(embeddings, 10))
     encoder = model_autoencoder.encoder
 
     model = DEC(
@@ -79,10 +79,10 @@ def clustering_experiment():
 
     loss = nn.KLDivLoss(size_average=False)
 
-    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.1, momentum=0.9)
+    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.01, momentum=0.9)
 
     losses_log, batches_log = train_clustering(
-        model, dl, loss, optimizer, device, epochs=10
+        model, dl, loss, optimizer, device, epochs=30
     )
 
     save_reconstruction_results(
