@@ -149,5 +149,5 @@ def save_reconstruction_results(
         embeddings = get_embeddings(dl, model, device)
         embeddings = embeddings.reshape(embeddings.shape[0], -1)
         plot_embedding_proj(embeddings, dir=dir + "embedding.png")
-    # plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
+        plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
     torch.save(model.state_dict(), dir + "model.pt")

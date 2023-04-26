@@ -28,7 +28,7 @@ def reconstruction_experiment():
     #    decoder_layers_per_block=[2, 2, 2, 2, 2],
     #    decoder_enable_bn=False,
     # ).to(device)
-    model = SmallAutoEncoder(64).to(device)
+    model = SmallAutoEncoder(20).to(device)
 
     print(
         f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:d}M"
@@ -38,7 +38,7 @@ def reconstruction_experiment():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     losses_log, batches_log = train_reconstruction(
-        model, dl, loss, optimizer, device, epochs=20
+        model, dl, loss, optimizer, device, epochs=30
     )
     save_reconstruction_results(
         "reconstruction",
@@ -61,7 +61,7 @@ def clustering_experiment():
     print("===================================")
     print(f"Dataset shape: {len(dataset)}")
 
-    model_autoencoder = SmallAutoEncoder(64).to(device)
+    model_autoencoder = SmallAutoEncoder(20).to(device)
     model_autoencoder.load_state_dict(torch.load("../models/AE_small/model.pt"))
     model_autoencoder.eval()
     embeddings = get_embeddings(dl, model_autoencoder, device)
@@ -69,7 +69,7 @@ def clustering_experiment():
     encoder = model_autoencoder.encoder
 
     model = DEC(
-        n_clusters=10, embedding_dim=64, encoder=encoder, cluster_centers=centers
+        n_clusters=10, embedding_dim=20, encoder=encoder, cluster_centers=centers
     )
     model.to(device)
 
@@ -98,5 +98,5 @@ def clustering_experiment():
 
 if __name__ == "__main__":
     np.random.seed(42)
-    # reconstruction_experiment()
+    reconstruction_experiment()
     clustering_experiment()
