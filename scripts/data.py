@@ -34,18 +34,20 @@ def save_samples_patch():
     ### loading the tifs
     sample_scenes = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
     filenames = []
-
+    im = Image.new("RGB", (224, 224), "black")
     for i, row in sample_scenes.iterrows():
         tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
         row = pd.DataFrame(row).T
         patches = separate_tif_into_patches(tif, row)
         filename = row.tif_filename.values[0].replace(".tif", "")
 
-        for j, patch in enumerate(patches):
-            im = Image.fromarray(patch)
+        j = 0
+        while len(patches) > 0:
+            patch = patches.pop(0)
+            im.paste(Image.fromarray(patch), (0, 0))
             im.save(f"../data/output/patches/{filename}_{j}.png")
             filenames.append(f"../data/output/patches/{filename}_{j}.png")
-            im.close()
+            j += 1
 
     return filenames
 
