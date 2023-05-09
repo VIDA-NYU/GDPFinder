@@ -12,7 +12,7 @@ from utils import save_reconstruction_results, get_embeddings, cluster_embedding
 
 def reconstruction_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = get_filenames()
+    filenames = get_filenames()[:200000]
     dataset = get_sample_patches_dataset(filenames=filenames, resize=(28, 28))
     dl = DataLoader(dataset, batch_size=256, shuffle=True)
 
@@ -38,7 +38,7 @@ def reconstruction_experiment():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     losses_log, batches_log = train_reconstruction(
-        model, dl, loss, optimizer, device, epochs=30
+        model, dl, loss, optimizer, device, epochs=15
     )
     save_reconstruction_results(
         "reconstruction",
@@ -47,13 +47,13 @@ def reconstruction_experiment():
         dl,
         model,
         device,
-        dir="../models/AE_small/",
+        dir="../models/AE_medium/",
     )
 
 
 def clustering_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = get_filenames()
+    filenames = get_filenames()[:200000]
     dataset = get_sample_patches_dataset(filenames=filenames, resize=(28, 28))
     dl = DataLoader(dataset, batch_size=256)  # , shuffle=True)
 
@@ -62,7 +62,7 @@ def clustering_experiment():
     print(f"Dataset shape: {len(dataset)}")
 
     model_autoencoder = SmallAutoEncoder(20).to(device)
-    model_autoencoder.load_state_dict(torch.load("../models/AE_small/model.pt"))
+    model_autoencoder.load_state_dict(torch.load("../models/AE_medium/model.pt"))
     model_autoencoder.eval()
     embeddings = get_embeddings(dl, model_autoencoder, device)
     centers = torch.tensor(cluster_embeddings(embeddings, 10))
@@ -82,7 +82,7 @@ def clustering_experiment():
     optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.01, momentum=0.9)
 
     losses_log, batches_log = train_clustering(
-        model, dl, loss, optimizer, device, epochs=30
+        model, dl, loss, optimizer, device, epochs=15
     )
 
     save_reconstruction_results(
@@ -92,7 +92,7 @@ def clustering_experiment():
         dl,
         model,
         device,
-        dir="../models/DEC_small/",
+        dir="../models/DEC_medium/",
     )
 
 
