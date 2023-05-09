@@ -20,7 +20,7 @@ def train_reconstruction(
         losses_log.append(iter_loss)
 
         if verbose:
-            print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.4f}")
+            print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.8f}")
 
     return losses_log, batches_log
 
@@ -44,6 +44,6 @@ def train_clustering(model, loader, loss, optimizer, device, epochs=100, verbose
         losses_log.append(iter_loss)
 
         if verbose:
-            print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.4f}")
+            print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.8f}")
 
     return losses_log, batches_log

@@ -40,7 +40,7 @@ def create_files_df():
     return gpd.GeoDataFrame(df)
 
 
-def separate_tif_into_patches(tif, shp, size=224, overlap=0):
+def separate_tif_into_patches(tif, shp, mask = True, size=224, overlap=0):
     """
     Mask the tif image with the boundaries of the city by adding black pixels.
     After, crop it into patches with defined size and overlap.
@@ -48,6 +48,7 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=0):
     Inputs:
         tif: rasterio object (tif image)
         shp: geopandas dataframe with the metadata of the scene
+        mask: boolean to mask the tif image
         size: size of the patches
         overlap: overlap between patches
 
@@ -65,8 +66,10 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=0):
         geo = [geo]
         geo = MultiPolygon(geo)
 
-    # mask it
-    out_image, _ = mask(tif, geo, filled=True)
+    if mask:
+        out_image, _ = mask(tif, geo, filled=True)
+    else:
+        out_image = tif.read()
     
     # crop into patches
     patches = []
