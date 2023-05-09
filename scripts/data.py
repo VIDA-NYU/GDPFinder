@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+from tqdm import tqdm
 import os
 from PIL import Image
 import rasterio
@@ -34,11 +35,11 @@ def save_samples_patch():
     ### loading the tifs
     sample_scenes = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
     filenames = []
-    im = Image.new("RGB", (224, 224), "black")
-    for i, row in sample_scenes.iterrows():
+    im = Image.new("RGB", (112, 112), "black")
+    for i, row in tqdm(sample_scenes.iterrows()):
         tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
         row = pd.DataFrame(row).T
-        patches = separate_tif_into_patches(tif, row)
+        patches = separate_tif_into_patches(tif, row, size = 112)
         filename = row.tif_filename.values[0].replace(".tif", "")
 
         j = 0
