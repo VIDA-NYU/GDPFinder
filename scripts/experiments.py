@@ -9,8 +9,7 @@ from models import AutoEncoder, SmallAutoEncoder, DEC
 from train import train_reconstruction, train_clustering
 from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
 
-
-def reconstruction_experiment():
+def small_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filenames = get_filenames()[:200000]
     dataset = get_sample_patches_dataset(filenames=filenames, resize=(28, 28))
@@ -20,18 +19,10 @@ def reconstruction_experiment():
     print("===================================")
     print(f"Dataset shape: {len(dataset)}")
 
-    # model = AutoEncoder(
-    #    latent_dim=128,
-    #    encoder_arch="vgg16",
-    #    encoder_lock_weights=True,
-    #    decoder_latent_dim_channels=128,
-    #    decoder_layers_per_block=[2, 2, 2, 2, 2],
-    #    decoder_enable_bn=False,
-    # ).to(device)
-    model = SmallAutoEncoder(20).to(device)
+    model = SmallAutoEncoder(20, layers_per_block=3).to(device)
 
     print(
-        f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:d}M"
+        f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:d}M"
     )
 
     loss = nn.MSELoss()
@@ -50,23 +41,14 @@ def reconstruction_experiment():
         dir="../models/AE_medium/",
     )
 
-
-def clustering_experiment():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = get_filenames()[:200000]
-    dataset = get_sample_patches_dataset(filenames=filenames, resize=(28, 28))
-    dl = DataLoader(dataset, batch_size=256)  # , shuffle=True)
-
-    print("Training AutoEncoder ...")
+    print("Training Clustering AutoEncoder ...")
     print("===================================")
     print(f"Dataset shape: {len(dataset)}")
 
-    model_autoencoder = SmallAutoEncoder(20).to(device)
-    model_autoencoder.load_state_dict(torch.load("../models/AE_medium/model.pt"))
-    model_autoencoder.eval()
-    embeddings = get_embeddings(dl, model_autoencoder, device)
+    model.eval()
+    embeddings = get_embeddings(dl, model, device)
     centers = torch.tensor(cluster_embeddings(embeddings, 10))
-    encoder = model_autoencoder.encoder
+    encoder = model.encoder
 
     model = DEC(
         n_clusters=10, embedding_dim=20, encoder=encoder, cluster_centers=centers
@@ -98,5 +80,4 @@ def clustering_experiment():
 
 if __name__ == "__main__":
     np.random.seed(42)
-    reconstruction_experiment()
-    clustering_experiment()
+    small_experiment()
