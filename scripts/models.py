@@ -11,47 +11,79 @@ from torch.utils.data import DataLoader
 
 
 class SmallAutoEncoder(nn.Module):
-    def __init__(self, latent_dim=64):
+    def __init__(self, latent_dim=64, layers_per_block=1):
         super(SmallAutoEncoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(3, 8, 3, stride=2, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(8, 8, 3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(8, 8, 3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(8, 8, 3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(8, 16, 3, stride=2, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(True),
-            nn.Conv2d(16, 32, 3, stride=2, padding=0),
-            nn.ReLU(True),
-            nn.Flatten(1),
-            nn.Linear(3 * 3 * 32, 128),
-            nn.ReLU(True),
-            nn.Linear(128, latent_dim),
-        )
+        
+        n_blocks = 3
+        blocks_in_channel = [3, 8, 16]
+        blocks_out_channel = [8, 16, 32]
 
-        self.decoder = nn.Sequential(
+        self.encoder = []
+        for b in range(n_blocks):
+            self.encoder.append(
+                nn.Conv2d(
+                    blocks_in_channel[b],
+                    blocks_out_channel[b],
+                    kernel_size=33,
+                    stride=2,
+                    padding=1,
+                )
+            )
+            self.encoder.append(nn.ReLU(True))
+            for layer in range(layers_per_block - 1):
+                self.encoder.append(
+                    nn.Conv2d(
+                        blocks_out_channel[b],
+                        blocks_out_channel[b],
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    )
+                )
+                self.encoder.append(nn.ReLU(True))
+            self.encoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
+        self.encoder.append(nn.Flatten(1))
+        self.encoder.append(nn.Linear(4 * 4 * 32, 128))
+        self.encoder.append(nn.ReLU(True))
+        self.encoder.append(nn.Linear(128, latent_dim))
+        self.encoder = nn.Sequential(*self.encoder)
+
+        self.decoder = [
             nn.Linear(latent_dim, 128),
             nn.ReLU(True),
-            nn.Linear(128, 3 * 3 * 32),
+            nn.Linear(128, 4 * 4 * 32),
             nn.ReLU(True),
-            nn.Unflatten(dim=1, unflattened_size=(32, 3, 3)),
-            nn.ConvTranspose2d(32, 16, 3, stride=2, output_padding=0),
-            nn.BatchNorm2d(16),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(16, 8, 3, stride=2, padding=1, output_padding=1),
-            nn.Conv2d(8, 8, 3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(8, 8, 3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(8),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(8, 3, 3, stride=2, padding=1, output_padding=1),
-            nn.Sigmoid(),
-        )
+            nn.Unflatten(dim=1, unflattened_size=(32, 4, 4)),
+        ]
+
+        for b in range(n_blocks):
+            self.decoder.append(
+                nn.ConvTranspose2d(
+                    blocks_out_channel[b],
+                    blocks_in_channel[b],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    output_padding=1,
+                )
+            )
+            self.decoder.append(nn.BatchNorm2d(blocks_in_channel[b]))
+            self.decoder.append(nn.ReLU(True))
+            for layer in range(layers_per_block - 1):
+                self.decoder.append(
+                    nn.Conv2d(
+                        blocks_in_channel[b],
+                        blocks_in_channel[b],
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    )
+                )
+                self.decoder.append(nn.ReLU(True))
+            
+        self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
+        self.decoder.append(nn.Sigmoid())
+        self.decoder = nn.Sequential(*self.decoder)
 
     def forward(self, x):
         # encode
