@@ -39,7 +39,7 @@ def save_samples_patch():
     for i, row in tqdm(sample_scenes.iterrows()):
         tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
         row = pd.DataFrame(row).T
-        patches = separate_tif_into_patches(tif, row, size = 112)
+        patches = separate_tif_into_patches(tif, row, False, size = 112)
         filename = row.tif_filename.values[0].replace(".tif", "")
 
         j = 0

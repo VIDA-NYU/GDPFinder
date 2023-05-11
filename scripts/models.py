@@ -24,7 +24,7 @@ class SmallAutoEncoder(nn.Module):
                 nn.Conv2d(
                     blocks_in_channel[b],
                     blocks_out_channel[b],
-                    kernel_size=33,
+                    kernel_size=3,
                     stride=2,
                     padding=1,
                 )
@@ -48,6 +48,9 @@ class SmallAutoEncoder(nn.Module):
         self.encoder.append(nn.Linear(128, latent_dim))
         self.encoder = nn.Sequential(*self.encoder)
 
+        blocks_in_channel.reverse()
+        blocks_out_channel.reverse()
+
         self.decoder = [
             nn.Linear(latent_dim, 128),
             nn.ReLU(True),
@@ -64,7 +67,7 @@ class SmallAutoEncoder(nn.Module):
                     kernel_size=3,
                     stride=2,
                     padding=1,
-                    output_padding=1,
+                    output_padding= 0 if b == 0 else 1,
                 )
             )
             self.decoder.append(nn.BatchNorm2d(blocks_in_channel[b]))
