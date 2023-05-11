@@ -390,6 +390,14 @@ def check_selected_cities_most_recent(selected_cities, try_download=False):
     return df
 
 
+def unify_geodataframes():
+    geojsons = os.listdir("../data/scenes_metadata")
+    geojsons = [f for f in geojsons if f[-7:] == "geojson"]
+    geojsons = [gpd.read_file(f"../data/scenes_metadata/{f}") for f in geojsons]
+    df = gpd.GeoDataFrame(pd.concat(geojsons))
+
+    return df
+
 if __name__ == "__main__":
 
     logging.basicConfig(
@@ -401,4 +409,7 @@ if __name__ == "__main__":
     #search_scenes_selected_cities_most_recent(selected_cities)
     #download_scenes_selected_cities_most_recent(selected_cities)
     #extract_tar_selected_cities_most_recent(selected_cities, verify_before_extract=True)
-    print(check_selected_cities_most_recent(selected_cities, False))
+    #print(check_selected_cities_most_recent(selected_cities, False))
+
+    #df = unify_geodataframes()
+    #df.to_file("../data/scenes_metadata/scenes.geojson")
