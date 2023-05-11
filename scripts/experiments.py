@@ -19,10 +19,10 @@ def small_experiment():
     print("===================================")
     print(f"Dataset shape: {len(dataset)}")
 
-    model = SmallAutoEncoder(20, layers_per_block=3).to(device)
+    model = SmallAutoEncoder(20, layers_per_block=4).to(device)
 
     print(
-        f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:d}M"
+        f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:2f}M"
     )
 
     loss = nn.MSELoss()
@@ -56,7 +56,7 @@ def small_experiment():
     model.to(device)
 
     print(
-        f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:d}M"
+        f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)//1000000:.2f}M"
     )
 
     loss = nn.KLDivLoss(size_average=False)
