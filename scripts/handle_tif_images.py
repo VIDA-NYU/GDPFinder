@@ -40,7 +40,7 @@ def create_files_df():
     return gpd.GeoDataFrame(df)
 
 
-def separate_tif_into_patches(tif, shp, mask_img = True, size=224, overlap=0):
+def separate_tif_into_patches(tif, shp, mask_img = True, size=224):
     """
     Mask the tif image with the boundaries of the city by adding black pixels.
     After, crop it into patches with defined size and overlap.
@@ -50,7 +50,6 @@ def separate_tif_into_patches(tif, shp, mask_img = True, size=224, overlap=0):
         shp: geopandas dataframe with the metadata of the scene
         mask_img: boolean to mask the tif image
         size: size of the patches
-        overlap: overlap between patches
 
     Outputs:
         patches: list of numpy arrays (patches)  
@@ -73,19 +72,30 @@ def separate_tif_into_patches(tif, shp, mask_img = True, size=224, overlap=0):
     
     # crop into patches
     patches = []
-    n_horizontal = out_image.shape[1] // (size - overlap)
-    n_vertical = out_image.shape[2] // (size - overlap)
+    patches_rects = []
+    n_horizontal = out_image.shape[1] // size
+    n_vertical = out_image.shape[2] // size
+    lon_step = (shp.bounds.maxx.item() - shp.bounds.minx.item()) / n_horizontal
+    lat_step = (shp.bounds.maxy.item() - shp.bounds.miny.item()) / n_vertical
+    lon_start = shp.bounds.minx.item()
+    lat_start = shp.bounds.miny.item()
     for i in range(n_horizontal):
         for j in range(n_vertical):
-            i1 = i * (size - overlap)
+            i1 = i * size
             i2 = i1 + size
-            j1 = j * (size - overlap)
+            j1 = j * size
             j2 = j1 + size
+            lon1 = i * lon_step + lon_start
+            lon2 = lon1 + lon_step
+            lat1 = j * lat_step + lat_start
+            lat2 = lat1 + lat_step
             patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
+            patches_rects.append(Polygon([[lon1, lat1], [lon2, lat1], [lon2, lat2], [lon1, lat2]]))
             if np.sum(patches[-1]) == 0:
                 patches.pop()
+                patches_rects.pop()
     
-    return patches
+    return patches, patches_rects
 
 
 def plot_tif_image(filename, save_path=None):

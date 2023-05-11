@@ -38,17 +38,24 @@ def save_samples_patch():
     im = Image.new("RGB", (112, 112), "black")
     for i, row in tqdm(sample_scenes.iterrows()):
         tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
-        row = pd.DataFrame(row).T
-        patches = separate_tif_into_patches(tif, row, False, size = 112)
+        row = gpd.GeoDataFrame(pd.DataFrame(row).T)
+        patches_df = []
+        patches, patches_rects = separate_tif_into_patches(tif, row, False, size = 112)
         filename = row.tif_filename.values[0].replace(".tif", "")
+        entity_id = filename.split("_")[0]
 
         j = 0
         while len(patches) > 0:
             patch = patches.pop(0)
+            patches_rect = patches_rects.pop()
             im.paste(Image.fromarray(patch), (0, 0))
             im.save(f"../data/output/patches/{filename}_{j}.png")
             filenames.append(f"../data/output/patches/{filename}_{j}.png")
+            patches_df.append([entity_id, j, f"{filename}_{j}.png", patches_rect])
             j += 1
+
+        patches_df = gpd.GeoDataFrame(patches_df, columns = ["entity_id", "patche_id", "patche_filename", "geometry"])
+        patches_df.to_file(f"../data/output/patches/{filename}.geojson")
 
     return filenames
 
