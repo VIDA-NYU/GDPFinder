@@ -41,6 +41,9 @@ def create_files_df():
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
 def separate_tif_into_patches(tif, shp, mask_img = True, size=224):
     """
     Mask the tif image with the boundaries of the city by adding black pixels.
@@ -55,9 +58,12 @@ def separate_tif_into_patches(tif, shp, mask_img = True, size=224):
     Outputs:
         patches: list of numpy arrays (patches)  
     """
+<<<<<<< HEAD
 =======
 def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = False):
 >>>>>>> 33d3171 (initial)
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     # get the boundaries of the scene city
     cities_shp = gpd.read_file("../data/CityBoundaries.shp").to_crs(tif.crs)
     cities_shp["city_name"] = cities_shp.NAME.apply(lambda x : x.lower().replace(" ", "_").replace("-", "_"))
@@ -66,6 +72,9 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
     state = shp.state.values[0]
     geo = cities_shp[(cities_shp.city_name == city) & (cities_shp.state_name == state)].geometry.values[0]
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     if type(geo) == Polygon:
         geo = [geo]
         geo = MultiPolygon(geo)
@@ -84,6 +93,7 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
     lat_step = (shp.bounds.maxy.item() - shp.bounds.miny.item()) / n_vertical
     lon_start = shp.bounds.minx.item()
     lat_start = shp.bounds.miny.item()
+<<<<<<< HEAD
 =======
     
     # mask it
@@ -94,6 +104,8 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
     n_horizontal = out_image.shape[1] // (size - overlap)
     n_vertical = out_image.shape[2] // (size - overlap)
 >>>>>>> 33d3171 (initial)
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     for i in range(n_horizontal):
         for j in range(n_vertical):
             i1 = i * size
@@ -106,10 +118,14 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
             lat2 = lat1 + lat_step
             patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
             patches_rects.append(Polygon([[lon1, lat1], [lon2, lat1], [lon2, lat2], [lon1, lat2]]))
             if np.sum(patches[-1]) == 0:
                 patches.pop()
                 patches_rects.pop()
+<<<<<<< HEAD
 =======
     
     if plot_patches:
@@ -121,6 +137,8 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
     
     return patches
 >>>>>>> 33d3171 (initial)
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     
     return patches, patches_rects
 
@@ -166,6 +184,7 @@ if __name__ == "__main__":
     # test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     # tif = rasterio.open(
     #    f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
     #)
@@ -176,3 +195,9 @@ if __name__ == "__main__":
     )
     separate_tif_into_patches(tif, test_sample)
 >>>>>>> 33d3171 (initial)
+=======
+    # tif = rasterio.open(
+    #    f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
+    #)
+    #separate_tif_into_patches(tif, test_sample)
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
