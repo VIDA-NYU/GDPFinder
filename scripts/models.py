@@ -124,12 +124,54 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
         # assert latent_dim % 49 == 0
         self.encoder = PetrainedEncoder(latent_dim, encoder_arch, encoder_lock_weights)
-        self.decoder = Decoder(
-            latent_dim,
-            # decoder_latent_dim_channels,
-            decoder_layers_per_block,
-            decoder_enable_bn,
-        )
+        #self.decoder = Decoder(
+        #    latent_dim,
+        #    # decoder_latent_dim_channels,
+        #    decoder_layers_per_block,
+        #    decoder_enable_bn,
+        #)
+
+        self.decoder = []
+        self.decoder += [
+            nn.Linear(latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 7 * 7 * 8),
+            nn.ReLU(),
+            nn.Unflatten(dim=1, unflattened_size=(8, 7, 7)),
+        ]
+
+        n_blocks = 5
+        blocks_in_channel = [8, 64, 128, 64, 8]
+        blocks_out_channel = [64, 128, 64, 8, 3]
+        for b in range(n_blocks):
+            self.decoder.append(
+                nn.ConvTranspose2d(
+                    blocks_in_channel[b],
+                    blocks_out_channel[b],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    output_padding= 0 if b == 0 else 1,
+                )
+            )
+            self.decoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
+            self.decoder.append(nn.ReLU(True))
+            for layer in range(decoder_layers_per_block - 1):
+                self.decoder.append(
+                    nn.Conv2d(
+                        blocks_out_channel[b],
+                        blocks_out_channel[b],
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    )
+                )
+                self.decoder.append(nn.ReLU(True))
+            
+        self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
+        self.decoder.append(nn.Sigmoid())
+        self.decoder = nn.Sequential(*self.decoder)
+
 
     def forward(self, x):
         encoded = self.encoder(x)
