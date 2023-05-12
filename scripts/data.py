@@ -69,7 +69,7 @@ def get_sample_patches_dataset(filenames=None, resize=None):
 
 def get_filenames():
     filenames = os.listdir("../data/output/patches")
-    filenames = [os.path.join("../data/output/patches", f) for f in filenames]
+    filenames = [os.path.join("../data/output/patches", f) for f in filenames if f[-3:] == "png"]
     np.random.shuffle(filenames)
     return filenames
 

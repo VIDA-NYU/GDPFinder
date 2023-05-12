@@ -223,18 +223,14 @@ class Decoder(nn.Module):
     def __init__(
         self,
         latent_dim,
-        # latent_dim_channels=128,
         layers_per_block=[2, 2, 3, 3, 3],
         enable_bn=False,
     ):
         super(Decoder, self).__init__()
         # assert latent_dim % 49 == 0
         assert len(layers_per_block) == 5
-        # assert latent_dim_channels in [128, 256, 512]
         self.latent_dim = latent_dim
-        # self.latent_channels = latent_dim // 49
 
-        # self.latent_dim_channels = latent_dim_channels
         self.fc = nn.Sequential(
             nn.Linear(latent_dim, 256),
             nn.ReLU(),
@@ -305,11 +301,11 @@ class DecoderBlock(nn.Module):
             self.add_module("1 DecoderLayer", layer)
         else:
             for i in range(layers):
-                if i == 0:
-                    layer = DecoderLayer(
-                        input_dim=input_dim, output_dim=hidden_dim, enable_bn=enable_bn
-                    )
-                elif i == (layers - 1):
+                #if i == 0:
+                #    layer = DecoderLayer(
+                #        input_dim=input_dim, output_dim=hidden_dim, enable_bn=enable_bn
+                #    )
+                if i == (layers - 1):
                     layer = DecoderLayer(
                         input_dim=hidden_dim, output_dim=output_dim, enable_bn=enable_bn
                     )
