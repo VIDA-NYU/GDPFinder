@@ -1,21 +1,17 @@
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from shapely.geometry import Point
-import rasterio
+from shapely.geometry import Polygon, MultiPolygon
 from rasterio.mask import mask
-from rasterio.plot import show
 import matplotlib.pyplot as plt
-from matplotlib import cm
 from PIL import Image
 import os
-from sklearn.feature_extraction import image
 
 
 def create_files_df():
     """
     Function that will look into every tif image inside the folder data/output/unzipped_files
-    and obtain the metadata of the scene that it is related.
+    and obtain the metadata of the scene that it is related based on the data/scenes_metadata folder.
     """
     # creating dataframe of unzipped files
     unzipped_files = [
@@ -44,32 +40,72 @@ def create_files_df():
     return gpd.GeoDataFrame(df)
 
 
-def separate_tif_into_patches(tif, shp, size=224, overlap=8):
-    geo = [shp.to_crs(tif.crs).geometry.unary_union]
-    out_image, _ = mask(tif, geo, filled=True)
-    patches = []
-    n_horizontal = out_image.shape[1] // (size - overlap)
-    n_vertical = out_image.shape[2] // (size - overlap)
+def separate_tif_into_patches(tif, shp, mask_img = True, size=224):
+    """
+    Mask the tif image with the boundaries of the city by adding black pixels.
+    After, crop it into patches with defined size and overlap.
 
+    Inputs:
+        tif: rasterio object (tif image)
+        shp: geopandas dataframe with the metadata of the scene
+        mask_img: boolean to mask the tif image
+        size: size of the patches
+
+    Outputs:
+        patches: list of numpy arrays (patches)  
+    """
+    # get the boundaries of the scene city
+    cities_shp = gpd.read_file("../data/CityBoundaries.shp").to_crs(tif.crs)
+    cities_shp["city_name"] = cities_shp.NAME.apply(lambda x : x.lower().replace(" ", "_").replace("-", "_"))
+    cities_shp["state_name"] = cities_shp.ST.apply(lambda x : x.lower())
+    city = shp.city.values[0]
+    state = shp.state.values[0]
+    geo = cities_shp[(cities_shp.city_name == city) & (cities_shp.state_name == state)].geometry.values[0]
+    if type(geo) == Polygon:
+        geo = [geo]
+        geo = MultiPolygon(geo)
+
+    if mask_img:
+        out_image, _ = mask(tif, geo, filled=True)
+    else:
+        out_image = tif.read()
+    
+    # crop into patches
+    patches = []
+    patches_rects = []
+    n_horizontal = out_image.shape[1] // size
+    n_vertical = out_image.shape[2] // size
+    lon_step = (shp.bounds.maxx.item() - shp.bounds.minx.item()) / n_horizontal
+    lat_step = (shp.bounds.maxy.item() - shp.bounds.miny.item()) / n_vertical
+    lon_start = shp.bounds.minx.item()
+    lat_start = shp.bounds.miny.item()
     for i in range(n_horizontal):
         for j in range(n_vertical):
-            i1 = i * (size - overlap)
+            i1 = i * size
             i2 = i1 + size
-            j1 = j * (size - overlap)
+            j1 = j * size
             j2 = j1 + size
+            lon1 = i * lon_step + lon_start
+            lon2 = lon1 + lon_step
+            lat1 = j * lat_step + lat_start
+            lat2 = lat1 + lat_step
             patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
- 
-    for i, img in enumerate(patches):
-        plt.axis(False)
-        plt.imshow(img, interpolation="nearest")
-        plt.savefig(f"../figures/testing_{i}.png")
-        plt.close()
+            patches_rects.append(Polygon([[lon1, lat1], [lon2, lat1], [lon2, lat2], [lon1, lat2]]))
+            if np.sum(patches[-1]) == 0:
+                patches.pop()
+                patches_rects.pop()
     
+    return patches, patches_rects
 
 
 def plot_tif_image(filename, save_path=None):
     """
-    Plot the tif image from filename with a really lower resolution. (It can have some artefacts due to resolution reduction)
+    Plot the tif image from filename with a really lower resolution. 
+    (It can change the picture appearence when reducing resolution)
+
+    Inputs:
+        filename: string with the name of the tif file
+        save_path: string with the path to save the image, if None, it will show the image
     """
     im = Image.open("../data/output/unzipped_files/" + filename)
     width, height = im.size
@@ -87,8 +123,8 @@ def plot_tif_image(filename, save_path=None):
 
 if __name__ == "__main__":
     # saving metadata from the download tif images
-    # df = create_files_df()
-    # df.to_file("../data/output/downloaded_scenes_metadata.geojson")
+    df = create_files_df()
+    df.to_file("../data/output/downloaded_scenes_metadata.geojson")
     
     # testing ploting a random image
     # filename = (
@@ -99,13 +135,10 @@ if __name__ == "__main__":
     # plot_tif_image(filename, "../figures/tif_plot.png")
 
     # getting patches for the tile of manhattan
-    test_sample = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
-    test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
+    # test_sample = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
+    # test_sample = test_sample[test_sample.geometry.contains(Point([-74.004162, 40.708060]))].head(1)
 
-    shp = gpd.read_file(
-        f"../data/scenes_metadata/{test_sample.shapefile_filename.values[0]}"
-    )
-    tif = rasterio.open(
-        f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
-    )
-    separate_tif_into_patches(tif, shp)
+    # tif = rasterio.open(
+    #    f"../data/output/unzipped_files/{test_sample.tif_filename.values[0]}"
+    #)
+    #separate_tif_into_patches(tif, test_sample)
