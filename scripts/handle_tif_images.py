@@ -42,6 +42,9 @@ def create_files_df():
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
 =======
 >>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
 def separate_tif_into_patches(tif, shp, mask_img = True, size=224):
@@ -94,6 +97,7 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
     lon_start = shp.bounds.minx.item()
     lat_start = shp.bounds.miny.item()
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     
     # mask it
@@ -104,6 +108,8 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
     n_horizontal = out_image.shape[1] // (size - overlap)
     n_vertical = out_image.shape[2] // (size - overlap)
 >>>>>>> 33d3171 (initial)
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
 =======
 >>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     for i in range(n_horizontal):
@@ -119,12 +125,16 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
             patches.append(out_image[:3, i1:i2, j1:j2].transpose(1, 2, 0))
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
 =======
 >>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
             patches_rects.append(Polygon([[lon1, lat1], [lon2, lat1], [lon2, lat2], [lon1, lat2]]))
             if np.sum(patches[-1]) == 0:
                 patches.pop()
                 patches_rects.pop()
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
     
@@ -140,6 +150,9 @@ def separate_tif_into_patches(tif, shp, size=224, overlap=8, plot_patches = Fals
 =======
 >>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     
+=======
+    
+>>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
     return patches, patches_rects
 
 
