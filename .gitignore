@@ -167,5 +167,10 @@ cython_debug/
 # Data and plots
 data/
 figures/
+<<<<<<< HEAD
 installs/
 saved_models/
+=======
+saved_models/
+installs/
+>>>>>>> ethan
