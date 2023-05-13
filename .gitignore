@@ -167,13 +167,5 @@ cython_debug/
 # Data and plots
 data/
 figures/
-<<<<<<< HEAD
-installs/
-saved_models/
-=======
-<<<<<<< HEAD
 saved_models/
 installs/
-=======
->>>>>>> 53445937bf601a934a93718bf1185e6b6b13c446
->>>>>>> parent of acd0544 (Merge branch 'ethan' into ethan)
