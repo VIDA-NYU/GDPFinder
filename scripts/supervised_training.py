@@ -1,134 +1,25 @@
 import os
-from PIL import Image
 import torch
-import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from torchvision.models import resnet50, ResNet50_Weights
-from torchvision.transforms import transforms
-import random
 import gc
 from datetime import datetime
 
-Image.MAX_IMAGE_PIXELS = None
+from create_dataset import generate_dataset
+from supervised_models import generate_resnet
 
-print(torch.cuda.is_available())
-print(torch.version.cuda)
-
-
-## Create datasets
-
-class CustomDataset(Dataset):
-    def __init__(self, data_dir, transform=None):
-        self.data_dir = data_dir
-        self.transform = transform
-        self.image_files = os.listdir(data_dir)
-
-    def __len__(self):
-        return len(self.image_files)
-
-    def __getitem__(self, index):
-        image_name = self.image_files[index]
-        image_path = os.path.join(self.data_dir, image_name)
-
-        # Load the image
-        image = Image.open(image_path)
-
-        # Extract the label from the image name
-        label = int(image_name.split('_')[-2].split('.')[0])
-
-        # Apply transformations if provided
-        if self.transform:
-            image = self.transform(image)
-
-        return image, label
-
-# Define the transformations to apply to the images
-transform = transforms.Compose([
-    transforms.ToTensor()
-])
-
-# Define the path to the directory containing the image files
-data_dir = '../data/patches'
-
-# Set a random seed for reproducibility
-random.seed(42)
-
-# Create an instance of the custom dataset
-dataset = CustomDataset(data_dir, transform=transform)
-
-# Calculate the sizes for training, validation, and testing sets
-dataset_size = len(dataset)
-train_size = int(0.7 * dataset_size)
-val_size = int(0.15 * dataset_size)
-test_size = dataset_size - train_size - val_size
-
-# Create random indices for splitting the dataset
-indices = list(range(dataset_size))
-random.shuffle(indices)
-
-# Split the dataset into training, validation, and testing sets
-train_indices = indices[:train_size]
-val_indices = indices[train_size:train_size + val_size]
-test_indices = indices[train_size + val_size:]
-
-# Create the training dataset
-train_dataset = torch.utils.data.Subset(dataset, train_indices)
-
-# Create the validation dataset
-val_dataset = torch.utils.data.Subset(dataset, val_indices)
-
-# Create the testing dataset
-test_dataset = torch.utils.data.Subset(dataset, test_indices)
-
-print("Training set size:", len(train_dataset))
-print("Validation set size:", len(val_dataset))
-print("Testing set size:", len(test_dataset))
-
-
-
-
-## Generate ResNet
-
-# Set device
+print(f'GPU available: {torch.cuda.is_available()}')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Clear GPU cache
 torch.cuda.empty_cache()
 gc.collect()
 
-# Define ResNet-50 model
-model = resnet50(weights=ResNet50_Weights.DEFAULT)
-num_features = model.fc.in_features
+## Load data
+train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset()
 
-# Freeze the base model parameters
-for param in model.parameters():
-    param.requires_grad = False
-
-# Add additional fully connected layers
-model.fc = nn.Sequential(
-    nn.Linear(num_features, 1024),
-    nn.ReLU(inplace=True),
-    nn.Linear(1024, 224),
-    nn.ReLU(inplace=True),
-    nn.Linear(224, 64),
-    nn.ReLU(inplace=True),
-    nn.Linear(64, 1)
-)
-model.to(device)
-
-# Define loss function
-criterion = nn.L1Loss()
+# Load model architechture
+model, criterion = generate_resnet(device)
 
 # Define optimizer
 optimizer = optim.AdamW(model.parameters(), lr=0.01)
-
-# Create data loaders
-batch_size = 8
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=batch_size)
-test_loader = DataLoader(test_dataset, batch_size=batch_size)
-
-
 
 ## Train model
 
