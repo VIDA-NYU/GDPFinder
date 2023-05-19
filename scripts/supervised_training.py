@@ -1,4 +1,3 @@
-
 import os
 from PIL import Image
 import torch
@@ -183,8 +182,8 @@ for epoch in range(num_epochs):
         val_losses.append(val_loss) # for history
 
         # Check for improvement in validation accuracy
-        if abs(val_loss) < best_val_loss:
-            best_val_loss = abs(val_loss)
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             history = {'train_losses': train_losses, 'val_losses': val_losses}
             best_model_path = f'{model_dir}/FC_{epoch+1}_{val_loss:.0f}.pt'
             torch.save({'model_state_dict': model.state_dict(), 'history': history}, best_model_path)
@@ -245,11 +244,11 @@ for epoch in range(num_epochs):
         val_losses.append(val_loss) # for history
 
         # Check for improvement in validation accuracy
-        if abs(val_loss) < best_val_loss:
-            best_val_loss = abs(val_loss)
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
             no_improvement_counter = 0
             history = {'train_losses': train_losses, 'val_losses': val_losses}
-            best_model_path = f'{model_dir}/{epoch+1}_{val_loss:.0f}.pt'
+            best_model_path = f'{model_dir}/All_{epoch+1}_{val_loss:.0f}.pt'
             torch.save({'model_state_dict': model.state_dict(), 'history': history}, best_model_path)
         else:
             no_improvement_counter += 1
@@ -259,4 +258,4 @@ for epoch in range(num_epochs):
             print(f"No improvement in validation loss after {patience} epochs. Training stopped.")
             break
 
-    print(f"Epoch {epoch + 1}/{num_epochs}: Train Loss: {train_loss:.0f}, Val Loss: {val_loss:.0f}")
+    print(f"Training entire model. Epoch {epoch + 1}/{num_epochs}: Train Loss: {train_loss:.0f}, Val Loss: {val_loss:.0f}")
