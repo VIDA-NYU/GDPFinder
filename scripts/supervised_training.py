@@ -118,13 +118,7 @@ model.fc = nn.Sequential(
 model.to(device)
 
 # Define loss function
-def signed_mae(estimate, target):
-    errors = estimate - target
-    signed_errors = torch.sign(errors)
-    absolute_errors = torch.abs(errors)
-    signed_mae = torch.mean(absolute_errors * signed_errors)
-    return signed_mae
-criterion = signed_mae
+criterion = nn.L1Loss()
 
 # Define optimizer
 optimizer = optim.AdamW(model.parameters(), lr=0.01)
@@ -144,11 +138,15 @@ current_datetime = datetime.now()
 model_dir = f'../saved_models/individual_patches/{current_datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
 os.makedirs(model_dir)
 
-# Train top layers
 num_epochs = 500
 
+# Train top layers
 # Initialize variables for tracking best validation accuracy
 best_val_loss = float('inf')
+
+# Initialize lists to store historical training and validation loss
+train_losses = []
+val_losses = []
 
 for epoch in range(num_epochs):
     # Training
@@ -165,6 +163,7 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         train_loss += loss.item()
+        train_losses.append(train_loss) # for history
 
     train_loss /= len(train_loader)
 
@@ -181,12 +180,14 @@ for epoch in range(num_epochs):
             val_loss += loss.item()
 
         val_loss /= len(val_loader)
+        val_losses.append(val_loss) # for history
 
         # Check for improvement in validation accuracy
         if abs(val_loss) < best_val_loss:
             best_val_loss = abs(val_loss)
+            history = {'train_losses': train_losses, 'val_losses': val_losses}
             best_model_path = f'{model_dir}/FC_{epoch+1}_{val_loss:.0f}.pt'
-            torch.save({'model_state_dict': model.state_dict()}, best_model_path)
+            torch.save({'model_state_dict': model.state_dict(), 'history': history}, best_model_path)
         else:
             print(f"No improvement in validation loss. FC layer training stopped.")
             break
@@ -200,19 +201,14 @@ for param in model.parameters():
     param.requires_grad = True
 
 # Update optimizer to include all parameters
-optimizer = optim.AdamW(model.parameters(), lr=0.001)
+optimizer = optim.AdamW(model.parameters(), lr=0.01)
 
 # Train all layers
-num_epochs = 500
 patience = 5
 no_improvement_counter = 0
 
 # Initialize variables for tracking best validation accuracy
 best_val_loss = float('inf')
-
-# Initialize lists to store historical training and validation loss
-train_losses = []
-val_losses = []
 
 for epoch in range(num_epochs):
     # Training
