@@ -1,35 +1,15 @@
-import requests
-import pandas as pd
-import geopandas as gpd
-import zipfile
-import matplotlib.pyplot as plt
-import shapely
-import rasterio
-from rasterio.mask import mask
-from rasterio.plot import show
+
 import os
-import numpy as np
-from PIL import Image, ImageOps
-from sklearn.metrics import mean_squared_error, r2_score
-import skimage.segmentation
-from skimage.color import gray2rgb
-from sklearn.linear_model import LinearRegression
+from PIL import Image
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader
 from torchvision.models import resnet50, ResNet50_Weights
 from torchvision.transforms import transforms
-from torch.nn.utils.rnn import pad_sequence
-import math
 import random
-import statistics
-import glob
-import concurrent.futures
 import gc
 from datetime import datetime
-import glob
-import ast
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -205,6 +185,8 @@ for epoch in range(num_epochs):
         # Check for improvement in validation accuracy
         if abs(val_loss) < best_val_loss:
             best_val_loss = abs(val_loss)
+            best_model_path = f'{model_dir}/FC_{epoch+1}_{val_loss:.0f}.pt'
+            torch.save({'model_state_dict': model.state_dict()}, best_model_path)
         else:
             print(f"No improvement in validation loss. FC layer training stopped.")
             break
