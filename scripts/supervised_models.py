@@ -16,10 +16,10 @@ def generate_resnet(device):
     model.fc = nn.Sequential(
         nn.Linear(num_features, 1024),
         nn.ReLU(inplace=True),
-        #nn.Dropout(0.3),
+        nn.Dropout(0.3),
         nn.Linear(1024, 224),
         nn.ReLU(inplace=True),
-        #nn.Dropout(0.3),
+        nn.Dropout(0.3),
         nn.Linear(224, 64),
         nn.ReLU(inplace=True),
         nn.Linear(64, 1)

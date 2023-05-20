@@ -53,9 +53,9 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         train_loss += loss.item()
-        train_losses.append(train_loss) # for history
 
     train_loss /= len(train_loader)
+    train_losses.append(train_loss) # for history
 
     # Validation
     model.eval()
