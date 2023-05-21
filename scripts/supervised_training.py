@@ -16,7 +16,8 @@ gc.collect()
 train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset()
 
 # Load model architechture
-model, criterion = generate_resnet(device)
+train_all = False
+model, criterion = generate_resnet(device, train_all)
 
 # Define optimizer
 optimizer = optim.AdamW(model.parameters(), lr=0.01)
