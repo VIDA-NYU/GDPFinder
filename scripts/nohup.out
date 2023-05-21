@@ -7,3 +7,7 @@ No improvement in validation loss. FC layer training stopped.
 Training entire model. Epoch 1/500: Train Loss: 32768, Val Loss: 32784
 Training entire model. Epoch 2/500: Train Loss: 32612, Val Loss: 32923
 Training entire model. Epoch 3/500: Train Loss: 32646, Val Loss: 32306
+Training entire model. Epoch 4/500: Train Loss: 32770, Val Loss: 32590
+Training entire model. Epoch 5/500: Train Loss: 32700, Val Loss: 31958
+Training entire model. Epoch 6/500: Train Loss: 32752, Val Loss: 32391
+Training entire model. Epoch 7/500: Train Loss: 33019, Val Loss: 32475

@@ -1,0 +1,4 @@
+model run info:
+
+2023-05-12_23-00-19: 3 cities, resized to median, no fine-tuning, w/o dropout, bs=4, lr=0.01
+2023-05-19_20-24-01: all data, individual patches, only full black filtering, fine-tuning, w/ dropout, bs=8, lr =0.01

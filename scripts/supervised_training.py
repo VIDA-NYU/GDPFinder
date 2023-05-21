@@ -27,6 +27,7 @@ optimizer = optim.AdamW(model.parameters(), lr=0.01)
 # Create model directory
 current_datetime = datetime.now()
 model_dir = f'../saved_models/individual_patches/{current_datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
+print(model_dir)
 os.makedirs(model_dir)
 
 num_epochs = 500
