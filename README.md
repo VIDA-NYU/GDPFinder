@@ -10,5 +10,5 @@
 ### Example usage to train a model:
 nohup python -u scripts/supervised_training.py --imagetype ['patches' or 'resized']
 
-If images are to be resized, specify additional integer parameters --newwidth and --newheight
+If images are to be resized, specify additional integer parameters --newwidth and --newheight  
 Optional arguement --batchsize
