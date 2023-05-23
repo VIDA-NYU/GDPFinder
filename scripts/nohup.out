@@ -20,3 +20,10 @@ Validation set size: 50915
 Testing set size: 50916
 ../saved_models/2023-05-22_20-06-56
 Training FC layers. Epoch 1/500: Train Loss: 29766, Val Loss: 27910
+Training FC layers. Epoch 2/500: Train Loss: 29273, Val Loss: 27421
+No improvement in validation loss. FC layer training stopped.
+Training entire model. Epoch 1/500: Train Loss: 32521, Val Loss: 31244
+Training entire model. Epoch 2/500: Train Loss: 31324, Val Loss: 30216
+Training entire model. Epoch 3/500: Train Loss: 31068, Val Loss: 33618
+Training entire model. Epoch 4/500: Train Loss: 32063, Val Loss: 31844
+Training entire model. Epoch 5/500: Train Loss: 32394, Val Loss: 31495
