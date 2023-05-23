@@ -19,3 +19,4 @@ Training set size: 237603
 Validation set size: 50915
 Testing set size: 50916
 ../saved_models/2023-05-22_20-06-56
+Training FC layers. Epoch 1/500: Train Loss: 29766, Val Loss: 27910
