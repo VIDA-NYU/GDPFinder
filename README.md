@@ -1,4 +1,4 @@
-# GDPFinder
+# UrbanSat (GDPFinder)
 
 ## For the supervised approach:
 
