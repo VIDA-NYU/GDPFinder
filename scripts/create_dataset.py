@@ -32,15 +32,20 @@ class CustomDataset(Dataset):
         return image, label
 
 
-def generate_dataset():
+def generate_dataset(imagetype, batch_size=8, new_width=None, new_height=None):
 
-    # Define the transformations to apply to the images
-    transform = transforms.Compose([
-        transforms.ToTensor()
-    ])
-
-    # Define the path to the directory containing the image files
-    data_dir = '../data/patches'
+    # Define image directory, batch size, and the transformations to apply to the images based on image type
+    if imagetype == 'patches':
+        data_dir = '../data/patches'
+        transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+    if imagetype == 'resized': 
+        data_dir = '../data/crops'
+        transform = transforms.Compose([
+            transforms.Resize((new_width, new_height)),
+            transforms.ToTensor()
+        ])   
 
     # Set a random seed for reproducibility
     random.seed(42)
@@ -52,7 +57,6 @@ def generate_dataset():
     dataset_size = len(dataset)
     train_size = int(0.7 * dataset_size)
     val_size = int(0.15 * dataset_size)
-    test_size = dataset_size - train_size - val_size
 
     # Create random indices for splitting the dataset
     indices = list(range(dataset_size))
@@ -77,7 +81,6 @@ def generate_dataset():
     print("Testing set size:", len(test_dataset))
 
     # Create data loaders
-    batch_size = 8
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
     test_loader = DataLoader(test_dataset, batch_size=batch_size)

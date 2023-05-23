@@ -11,3 +11,11 @@ Training entire model. Epoch 4/500: Train Loss: 32770, Val Loss: 32590
 Training entire model. Epoch 5/500: Train Loss: 32700, Val Loss: 31958
 Training entire model. Epoch 6/500: Train Loss: 32752, Val Loss: 32391
 Training entire model. Epoch 7/500: Train Loss: 33019, Val Loss: 32475
+Training entire model. Epoch 8/500: Train Loss: 33029, Val Loss: 32435
+Training entire model. Epoch 9/500: Train Loss: 33031, Val Loss: 32422
+No improvement in validation loss after 5 epochs. Training stopped.
+GPU available: True
+Training set size: 237603
+Validation set size: 50915
+Testing set size: 50916
+../saved_models/2023-05-22_20-06-56

@@ -3,9 +3,21 @@ import torch
 import torch.optim as optim
 import gc
 from datetime import datetime
+import argparse
 
 from create_dataset import generate_dataset
 from supervised_models import generate_resnet
+
+parser = argparse.ArgumentParser()
+# Add parameters to the parser
+parser.add_argument('--imagetype', required=True, type=str, help='use patches or resized data')
+parser.add_argument('--batchsize', type=int, default=8, help='training batch size')
+parser.add_argument('--newwidth', type=int, default=None, help='image width, if resizing')
+parser.add_argument('--newheight', type=int, default=None, help='image height, if resizing')
+
+# Parse and access arguments
+args = parser.parse_args()
+image_type, batch_size, new_width, new_height = args.imagetype, args.batchsize, args.newwidth, args.newheight
 
 print(f'GPU available: {torch.cuda.is_available()}')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -13,7 +25,7 @@ torch.cuda.empty_cache()
 gc.collect()
 
 ## Load data
-train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset()
+train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset(image_type, batch_size, new_width, new_height)
 
 # Load model architechture
 train_all = False
@@ -26,9 +38,9 @@ optimizer = optim.AdamW(model.parameters(), lr=0.01)
 
 # Create model directory
 current_datetime = datetime.now()
-model_dir = f'../saved_models/individual_patches/{current_datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
-print(model_dir)
-os.makedirs(model_dir)
+model_path = f'../saved_models/{current_datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
+print(model_path)
+os.makedirs(model_path)
 
 num_epochs = 500
 
@@ -78,7 +90,7 @@ for epoch in range(num_epochs):
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             history = {'train_losses': train_losses, 'val_losses': val_losses}
-            best_model_path = f'{model_dir}/FC_{epoch+1}_{val_loss:.0f}.pt'
+            best_model_path = f'{model_path}/FC_{epoch+1}_{val_loss:.0f}.pt'
             torch.save({'model_state_dict': model.state_dict(), 'history': history}, best_model_path)
         else:
             print(f"No improvement in validation loss. FC layer training stopped.")
@@ -141,7 +153,7 @@ for epoch in range(num_epochs):
             best_val_loss = val_loss
             no_improvement_counter = 0
             history = {'train_losses': train_losses, 'val_losses': val_losses}
-            best_model_path = f'{model_dir}/All_{epoch+1}_{val_loss:.0f}.pt'
+            best_model_path = f'{model_path}/All_{epoch+1}_{val_loss:.0f}.pt'
             torch.save({'model_state_dict': model.state_dict(), 'history': history}, best_model_path)
         else:
             no_improvement_counter += 1
