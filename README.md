@@ -1,6 +1,6 @@
 # GDPFinder
 
-## For the supervised approach,
+## For the supervised approach:
 
 /notebooks/supervised_approach.ipynb contains data (census and satellite imagery) preparation and analysis.
 
