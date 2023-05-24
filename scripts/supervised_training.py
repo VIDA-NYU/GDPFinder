@@ -32,7 +32,7 @@ train_all = False
 model, criterion = generate_resnet(device, train_all)
 
 # Define optimizer
-optimizer = optim.AdamW(model.parameters(), lr=0.01)
+optimizer = optim.AdamW(model.parameters(), lr=0.001)
 
 ## Train model
 

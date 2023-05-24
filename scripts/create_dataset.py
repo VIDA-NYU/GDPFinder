@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms import transforms
 import random
+Image.MAX_IMAGE_PIXELS = None
 
 
 class CustomDataset(Dataset):
@@ -23,7 +24,7 @@ class CustomDataset(Dataset):
         image = Image.open(image_path)
 
         # Extract the label from the image name
-        label = int(image_name.split('_')[-2].split('.')[0])
+        label = int(image_name.split('_')[-1].split('.')[0])
 
         # Apply transformations if provided
         if self.transform:
@@ -32,15 +33,16 @@ class CustomDataset(Dataset):
         return image, label
 
 
-def generate_dataset(imagetype, batch_size=8, new_width=None, new_height=None):
+def generate_dataset(image_type, batch_size=8, new_width=None, new_height=None):
 
     # Define image directory, batch size, and the transformations to apply to the images based on image type
-    if imagetype == 'patches':
+    if image_type == 'patches':
         data_dir = '../data/patches'
         transform = transforms.Compose([
             transforms.ToTensor()
         ])
-    if imagetype == 'resized': 
+
+    if image_type == 'resized': 
         data_dir = '../data/crops'
         transform = transforms.Compose([
             transforms.Resize((new_width, new_height)),

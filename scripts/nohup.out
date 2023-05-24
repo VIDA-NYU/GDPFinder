@@ -2,6 +2,7 @@ GPU available: True
 Training set size: 391887
 Validation set size: 83975
 Testing set size: 83977
+../saved_models/2023-05-19_20-24-01
 Training FC layers. Epoch 1/500: Train Loss: 31008, Val Loss: 28774
 No improvement in validation loss. FC layer training stopped.
 Training entire model. Epoch 1/500: Train Loss: 32768, Val Loss: 32784
@@ -14,6 +15,7 @@ Training entire model. Epoch 7/500: Train Loss: 33019, Val Loss: 32475
 Training entire model. Epoch 8/500: Train Loss: 33029, Val Loss: 32435
 Training entire model. Epoch 9/500: Train Loss: 33031, Val Loss: 32422
 No improvement in validation loss after 5 epochs. Training stopped.
+
 GPU available: True
 Training set size: 237603
 Validation set size: 50915
@@ -27,3 +29,11 @@ Training entire model. Epoch 2/500: Train Loss: 31324, Val Loss: 30216
 Training entire model. Epoch 3/500: Train Loss: 31068, Val Loss: 33618
 Training entire model. Epoch 4/500: Train Loss: 32063, Val Loss: 31844
 Training entire model. Epoch 5/500: Train Loss: 32394, Val Loss: 31495
+Training entire model. Epoch 6/500: Train Loss: 32443, Val Loss: 31631
+No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 30451
+Validation set size: 6525
+Testing set size: 6526
+../saved_models/2023-05-24_16-12-55
