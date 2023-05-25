@@ -8,10 +8,11 @@ Image.MAX_IMAGE_PIXELS = None
 
 
 class CustomDataset(Dataset):
-    def __init__(self, data_dir, transform=None):
+    def __init__(self, data_dir, metric, transform=None):
         self.data_dir = data_dir
         self.transform = transform
         self.image_files = os.listdir(data_dir)
+        self.metric = metric
 
     def __len__(self):
         return len(self.image_files)
@@ -24,17 +25,19 @@ class CustomDataset(Dataset):
         image = Image.open(image_path)
 
         # Extract the label from the image name
-        label = int(image_name.split('_')[-1].split('.')[0])
+        if self.metric == 'mhi':
+            label = int(image_name.split('_')[-2].split('.')[0])
+        else:
+            label = float(image_name.split('_')[-1].split('.')[0])   
 
         # Apply transformations if provided
-        if self.transform:
-            image = self.transform(image)
+        image = self.transform(image)
 
         return image, label
 
 
-def generate_dataset(image_type, batch_size=8, new_width=None, new_height=None):
-
+def generate_dataset(metric, image_type, batch_size=8, new_width=None, new_height=None):
+    
     # Define image directory, batch size, and the transformations to apply to the images based on image type
     if image_type == 'patches':
         data_dir = '../data/patches'
@@ -53,7 +56,7 @@ def generate_dataset(image_type, batch_size=8, new_width=None, new_height=None):
     random.seed(42)
 
     # Create an instance of the custom dataset
-    dataset = CustomDataset(data_dir, transform=transform)
+    dataset = CustomDataset(data_dir, metric, transform=transform)
 
     # Calculate the sizes for training, validation, and testing sets
     dataset_size = len(dataset)

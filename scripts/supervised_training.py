@@ -12,6 +12,7 @@ from supervised_models import generate_resnet
 
 parser = argparse.ArgumentParser()
 # Add parameters to the parser
+parser.add_argument('--metric', type=str, required=True, help='specify metric to be estimated, mhi or ed')
 parser.add_argument('--imagetype', type=str, required=True, help='use patches or resized data')
 parser.add_argument('--fconly', type=bool, default=True, help='specify whether to train FC layers only or FC then all layers')
 parser.add_argument('--batchsize', type=int, default=8, help='training batch size')
@@ -20,7 +21,7 @@ parser.add_argument('--newheight', type=int, default=None, help='image height, i
 
 # Parse and access arguments
 args = parser.parse_args()
-image_type, fc_only, batch_size, new_width, new_height = args.imagetype, args.fconly, args.batchsize, args.newwidth, args.newheight
+metric, image_type, fc_only, batch_size, new_width, new_height = args.metric, args.imagetype, args.fconly, args.batchsize, args.newwidth, args.newheight
 
 print(f'GPU available: {torch.cuda.is_available()}')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,7 +29,7 @@ torch.cuda.empty_cache()
 gc.collect()
 
 ## Load data
-train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset(image_type, batch_size, new_width, new_height)
+train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset(metric, image_type, batch_size, new_width, new_height)
 
 # Load model architechture
 train_all = False
@@ -106,7 +107,7 @@ def train():
 
 # Create model directory
 current_datetime = datetime.now()
-model_path = f'../saved_models/{current_datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
+model_path = f'../saved_models/{metric}/{current_datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
 print(model_path)
 os.makedirs(model_path)
 

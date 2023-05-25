@@ -8,7 +8,7 @@
 
 
 ### Example usage to train a model:
-nohup python -u scripts/supervised_training.py --imagetype ['patches' or 'resized']
+nohup python -u scripts/supervised_training.py --metric ['mhi' or 'ed'] --imagetype ['patches' or 'resized']
 
 If images are to be resized, specify additional integer parameters --newwidth and --newheight  
 Optional argument --fconly, defaults to True to train only fully-connected layers. False trains FC then all layers.
