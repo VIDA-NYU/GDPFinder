@@ -11,4 +11,5 @@
 nohup python -u scripts/supervised_training.py --imagetype ['patches' or 'resized']
 
 If images are to be resized, specify additional integer parameters --newwidth and --newheight  
-Optional arguement --batchsize
+Optional argument --fconly, defaults to True to train only fully-connected layers. False trains FC then all layers.
+Optional arguement --batchsize, defaults to 8

@@ -37,3 +37,19 @@ Training set size: 30451
 Validation set size: 6525
 Testing set size: 6526
 ../saved_models/2023-05-24_16-12-55
+Training FC layers. Epoch 1/500: Train Loss: 31257, Val Loss: 26919
+Training FC layers. Epoch 2/500: Train Loss: 26358, Val Loss: 25138
+Training FC layers. Epoch 3/500: Train Loss: 25139, Val Loss: 24340
+Training FC layers. Epoch 4/500: Train Loss: 24508, Val Loss: 23907
+Training FC layers. Epoch 5/500: Train Loss: 24168, Val Loss: 23552
+Training FC layers. Epoch 6/500: Train Loss: 23763, Val Loss: 23072
+Training FC layers. Epoch 7/500: Train Loss: 23608, Val Loss: 22693
+No improvement in validation loss. FC layer training stopped.
+OOM dues to batch size.
+
+GPU available: True
+Training set size: 30451
+Validation set size: 6525
+Testing set size: 6526
+../saved_models/2023-05-25_15-38-16
+Training FC layers only...
