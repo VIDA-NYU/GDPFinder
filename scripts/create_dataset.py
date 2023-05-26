@@ -28,7 +28,7 @@ class CustomDataset(Dataset):
         if self.metric == 'mhi':
             label = int(image_name.split('_')[-2].split('.')[0])
         else:
-            label = float(image_name.split('_')[-1].split('.')[0])   
+            label = float(image_name.rsplit("_", 1)[-1].rsplit(".", 1)[0])   
 
         # Apply transformations if provided
         image = self.transform(image)

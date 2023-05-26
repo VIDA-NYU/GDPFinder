@@ -47,4 +47,9 @@ Training FC layers. Epoch 7/500: Train Loss: 23608, Val Loss: 22693
 No improvement in validation loss. FC layer training stopped.
 OOM dues to batch size.
 
-
+GPU available: True
+Training set size: 30447
+Validation set size: 6524
+Testing set size: 6526
+../saved_models/mhi/2023-05-25_23-28-34
+Training FC layers only...
