@@ -1,6 +1,5 @@
 import os
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import gc
 from datetime import datetime
@@ -33,11 +32,10 @@ train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader 
 
 # Load model architechture
 train_all = False
-model = generate_resnet(train_all)
-model.to(device)
+model, criterion = generate_resnet(train_all, device)
 
-# Define loss function and optimizer
-criterion = nn.L1Loss()
+
+# Define optimizer
 learning_rate = 0.001
 optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
 

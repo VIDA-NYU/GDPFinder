@@ -64,4 +64,15 @@ Epoch 8/500: Train Loss: 23667, Val Loss: 24557
 Epoch 9/500: Train Loss: 23441, Val Loss: 23492
 Epoch 10/500: Train Loss: 23393, Val Loss: 22031
 Epoch 11/500: Train Loss: 23179, Val Loss: 21753
-Epoch 1/500: Train Loss: 23259, Val Loss: 22270
+Epoch 12/500: Train Loss: 23259, Val Loss: 22270
+Epoch 13/500: Train Loss: 23145, Val Loss: 21983
+Epoch 14/500: Train Loss: 23141, Val Loss: 22199
+Epoch 15/500: Train Loss: 23067, Val Loss: 22234
+No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 30447
+Validation set size: 6524
+Testing set size: 6526
+../saved_models/ed/2023-05-27_13-44-45
+Training FC layers only...
