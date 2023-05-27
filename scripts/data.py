@@ -12,14 +12,15 @@ from handle_tif_images import separate_tif_into_patches
 
 
 class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames, resize=None):
+    def __init__(self, filenames, resize=None, resnet = False):
         self.filenames = filenames
         self.preprocess = [transforms.ToTensor()]
         if resize is not None:
             self.preprocess.append(transforms.Resize(resize))
-        # self.preprocess.append(transforms.Normalize(
-        #     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        # ))
+        if resnet:
+            self.preprocess.append(transforms.Normalize(
+                mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+            ))
         self.preprocess = transforms.Compose(self.preprocess)
 
     def __len__(self):
@@ -35,12 +36,12 @@ def save_samples_patch():
     ### loading the tifs
     sample_scenes = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
     filenames = []
-    im = Image.new("RGB", (112, 112), "black")
+    im = Image.new("RGB", (224, 224), "black")
     for i, row in tqdm(sample_scenes.iterrows()):
         tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
         row = gpd.GeoDataFrame(pd.DataFrame(row).T)
         patches_df = []
-        patches, patches_rects = separate_tif_into_patches(tif, row, False, size = 112)
+        patches, patches_rects = separate_tif_into_patches(tif, row, False, size = 224)
         filename = row.tif_filename.values[0].replace(".tif", "")
         entity_id = filename.split("_")[0]
 
@@ -60,10 +61,10 @@ def save_samples_patch():
     return filenames
 
 
-def get_sample_patches_dataset(filenames=None, resize=None):
+def get_sample_patches_dataset(filenames=None, resize=None, resnet = False):
     if filenames is None:
         filenames = save_samples_patch()
-    dataset = PatchesDataset(filenames, resize=resize)
+    dataset = PatchesDataset(filenames, resize=resize, resnet = resnet)
     return dataset
 
 
