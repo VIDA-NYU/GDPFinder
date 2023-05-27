@@ -1,14 +1,16 @@
 from models import target_distribution
+from utils import save_reconstruction_results
+from tqdm import tqdm
 
 
 def train_reconstruction(
-    model, loader, loss, optimizer, device, epochs=100, verbose=True
+    model, loader, loss, optimizer, device, epochs=100, test_loader = None, dir = None, verbose=True
 ):
     losses_log = []
     batches_log = []
     for i in range(epochs):
         iter_loss = 0
-        for batch, _ in loader:
+        for batch, _ in tqdm(loader):
             batch = batch.to(device)
             _, decoded = model(batch)
             rec_loss = loss(decoded, batch)
@@ -22,16 +24,30 @@ def train_reconstruction(
         if verbose:
             print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.8f}")
 
+        if i % 4 == 0:
+            model.eval()
+            save_reconstruction_results(
+                "reconstruction",
+                losses_log,
+                batches_log,
+                test_loader,
+                model,
+                device,
+                dir=dir,
+            )
+            model.train()
+            
+
     return losses_log, batches_log
 
 
-def train_clustering(model, loader, loss, optimizer, device, epochs=100, verbose=True):
+def train_clustering(model, loader, loss, optimizer, device, epochs=100, test_loader = None, dir = None, verbose=True):
     losses_log = []
     batches_log = []
 
     for i in range(epochs):
         iter_loss = 0
-        for batch, _ in loader:
+        for batch, _ in tqdm(loader):
             batch = batch.to(device)
             output = model(batch)
             target = target_distribution(output).detach()
@@ -45,5 +61,18 @@ def train_clustering(model, loader, loss, optimizer, device, epochs=100, verbose
 
         if verbose:
             print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.8f}")
+
+        if i % 4 == 0:
+            model.eval()
+            save_reconstruction_results(
+                "cluster",
+                losses_log,
+                batches_log,
+                test_loader,
+                model,
+                device,
+                dir=dir,
+            )
+            model.train()
 
     return losses_log, batches_log
