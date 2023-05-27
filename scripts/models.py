@@ -151,12 +151,12 @@ class AutoEncoder(nn.Module):
                     kernel_size=3,
                     stride=2,
                     padding=1,
-                    output_padding= 0 if b == 0 else 1,
+                    output_padding= 1 # if b == 0 else 0,
                 )
             )
             self.decoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
             self.decoder.append(nn.ReLU(True))
-            for layer in range(decoder_layers_per_block - 1):
+            for layer in range(decoder_layers_per_block[b] - 1):
                 self.decoder.append(
                     nn.Conv2d(
                         blocks_out_channel[b],
