@@ -80,19 +80,22 @@ def small_experiment():
 
 def big_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = get_filenames()[:100000]
-    dataset = get_sample_patches_dataset(filenames=filenames, resize=(224, 224))
-    dl = DataLoader(dataset, batch_size=64)
+    filenames = get_filenames()[:600000]
+    filenames_test = get_filenames()[:100]
+    dataset = get_sample_patches_dataset(filenames=filenames)
+    dataset_test = get_sample_patches_dataset(filenames = filenames_test)
+    dl = DataLoader(dataset, batch_size=96)
+    dl_test = DataLoader(dataset_test, batch_size=96)
 
     print(f"Dataset shape: {len(dataset)}")
     print("Training AutoEncoder ...")
     print("===================================")    
 
     model = AutoEncoder(
-        latent_dim = 50,
+        latent_dim = 20,
         encoder_arch="resnet50",
         encoder_lock_weights=True,
-        decoder_layers_per_block=[2, 2, 3, 3, 3],
+        decoder_layers_per_block=[3, 3, 3, 3, 3],
         decoder_enable_bn=False,
     ).to(device)
 
@@ -104,7 +107,7 @@ def big_experiment():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     losses_log, batches_log = train_reconstruction(
-        model, dl, loss, optimizer, device, epochs=1
+        model, dl, loss, optimizer, device, epochs=40, test_loader=dl_test, dir = "../models/AE_resnet50/"
     )
     save_reconstruction_results(
         "reconstruction",
@@ -139,7 +142,7 @@ def big_experiment():
     optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.01, momentum=0.9)
 
     losses_log, batches_log = train_clustering(
-        model, dl, loss, optimizer, device, epochs=1
+        model, dl, loss, optimizer, device, epochs=40, test_loader=dl_test, dir = "../models/DEC_resnet50/"
     )
 
     save_reconstruction_results(
