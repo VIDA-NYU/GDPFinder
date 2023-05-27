@@ -2,7 +2,7 @@ GPU available: True
 Training set size: 391887
 Validation set size: 83975
 Testing set size: 83977
-../saved_models/2023-05-19_20-24-01
+../saved_models/mhi/2023-05-19_20-24-01
 Training FC layers. Epoch 1/500: Train Loss: 31008, Val Loss: 28774
 No improvement in validation loss. FC layer training stopped.
 Training entire model. Epoch 1/500: Train Loss: 32768, Val Loss: 32784
@@ -20,7 +20,7 @@ GPU available: True
 Training set size: 237603
 Validation set size: 50915
 Testing set size: 50916
-../saved_models/2023-05-22_20-06-56
+../saved_models/mhi/2023-05-22_20-06-56
 Training FC layers. Epoch 1/500: Train Loss: 29766, Val Loss: 27910
 Training FC layers. Epoch 2/500: Train Loss: 29273, Val Loss: 27421
 No improvement in validation loss. FC layer training stopped.
@@ -36,7 +36,7 @@ GPU available: True
 Training set size: 30451
 Validation set size: 6525
 Testing set size: 6526
-../saved_models/2023-05-24_16-12-55
+../saved_models/mhi/2023-05-24_16-12-55
 Training FC layers. Epoch 1/500: Train Loss: 31257, Val Loss: 26919
 Training FC layers. Epoch 2/500: Train Loss: 26358, Val Loss: 25138
 Training FC layers. Epoch 3/500: Train Loss: 25139, Val Loss: 24340
@@ -53,3 +53,15 @@ Validation set size: 6524
 Testing set size: 6526
 ../saved_models/mhi/2023-05-25_23-28-34
 Training FC layers only...
+Epoch 1/500: Train Loss: 29853, Val Loss: 26909
+Epoch 2/500: Train Loss: 25776, Val Loss: 23674
+Epoch 3/500: Train Loss: 25101, Val Loss: 24561
+Epoch 4/500: Train Loss: 24709, Val Loss: 26009
+Epoch 5/500: Train Loss: 24397, Val Loss: 22686
+Epoch 6/500: Train Loss: 24146, Val Loss: 22787
+Epoch 7/500: Train Loss: 23886, Val Loss: 22655
+Epoch 8/500: Train Loss: 23667, Val Loss: 24557
+Epoch 9/500: Train Loss: 23441, Val Loss: 23492
+Epoch 10/500: Train Loss: 23393, Val Loss: 22031
+Epoch 11/500: Train Loss: 23179, Val Loss: 21753
+Epoch 1/500: Train Loss: 23259, Val Loss: 22270

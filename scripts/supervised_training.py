@@ -49,7 +49,6 @@ def train():
     no_improvement_counter = 0
 
     while True:
-        epoch_iterator = itertools.count(1)
         epoch = next(epoch_iterator)
         if epoch > 500:
             break
@@ -102,7 +101,7 @@ def train():
                 print(f"No improvement in validation loss after {patience} epochs. Training stopped.")
                 break
 
-        print(f"Epoch {epoch}/500: Train Loss: {train_loss:.0f}, Val Loss: {val_loss:.0f}")
+        print(f"Epoch {epoch}: Train Loss: {train_loss:.0f}, Val Loss: {val_loss:.0f}")
 
 
 # Create model directory
@@ -120,6 +119,9 @@ if fc_only == True:
     patience = 5
 else:
     patience = 1
+
+# Initialize epoch iterator
+epoch_iterator = itertools.count(1)
 
 # Train FC layers
 print('Training FC layers only...')
