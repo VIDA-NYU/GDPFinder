@@ -177,24 +177,22 @@ def big_experiment():
 
 def varying_clusters_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames_train = get_filenames()[:300000]
+    filenames_train = get_filenames()[:150000]
     filenames_test = get_filenames()[:1000]
     dataset_train = get_sample_patches_dataset(filenames=filenames_train)
     dataset_test = get_sample_patches_dataset(filenames=filenames_test)
     dl_train = DataLoader(dataset_train, batch_size=96)
     dl_test = DataLoader(dataset_test, batch_size=96)
     latent_dim = 20
-    model = (
-        AutoEncoder(
-            latent_dim=latent_dim,
-            encoder_arch="resnet50",
-            encoder_lock_weights=True,
-            decoder_layers_per_block=[3, 3, 3, 3, 3],
-            decoder_enable_bn=False,
-        )
-        .load_state_dict(torch.load("../models/AE_resnet50/model.pt"))
-        .to(device)
+    model = AutoEncoder(
+        latent_dim=latent_dim,
+        encoder_arch="resnet50",
+        encoder_lock_weights=True,
+        decoder_layers_per_block=[3, 3, 3, 3, 3],
+        decoder_enable_bn=False,
     )
+    model.load_state_dict(torch.load("../models/AE_resnet50/model.pt"))
+    model = model.to(device)
 
     print(
         f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
@@ -209,6 +207,7 @@ def varying_clusters_experiment():
 
     for k in [10, 20, 30, 50, 100]:
         centers = torch.tensor(cluster_embeddings(embeddings, k))
+        print(f"Training DEC with k={k}")
         model = DEC(
             n_clusters=k,
             embedding_dim=latent_dim,
