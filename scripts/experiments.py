@@ -9,6 +9,7 @@ from models import AutoEncoder, SmallAutoEncoder, DEC
 from train import train_reconstruction, train_clustering
 from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
 
+
 def small_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filenames = get_filenames()[:400000]
@@ -17,7 +18,7 @@ def small_experiment():
 
     print(f"Dataset shape: {len(dataset)}")
     print("Training AutoEncoder ...")
-    print("===================================")    
+    print("===================================")
 
     model = SmallAutoEncoder(50, layers_per_block=4).to(device)
 
@@ -83,16 +84,17 @@ def big_experiment():
     filenames = get_filenames()[:600000]
     filenames_test = get_filenames()[:100]
     dataset = get_sample_patches_dataset(filenames=filenames)
-    dataset_test = get_sample_patches_dataset(filenames = filenames_test)
+    dataset_test = get_sample_patches_dataset(filenames=filenames_test)
     dl = DataLoader(dataset, batch_size=96)
     dl_test = DataLoader(dataset_test, batch_size=96)
 
     print(f"Dataset shape: {len(dataset)}")
     print("Training AutoEncoder ...")
-    print("===================================")    
+    print("===================================")
 
+    latent_dim = 20
     model = AutoEncoder(
-        latent_dim = 20,
+        latent_dim=latent_dim,
         encoder_arch="resnet50",
         encoder_lock_weights=True,
         decoder_layers_per_block=[3, 3, 3, 3, 3],
@@ -107,7 +109,14 @@ def big_experiment():
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     losses_log, batches_log = train_reconstruction(
-        model, dl, loss, optimizer, device, epochs=40, test_loader=dl_test, dir = "../models/AE_resnet50/"
+        model,
+        dl,
+        loss,
+        optimizer,
+        device,
+        epochs=40,
+        test_loader=dl_test,
+        dir="../models/AE_resnet50/",
     )
     save_reconstruction_results(
         "reconstruction",
@@ -129,7 +138,10 @@ def big_experiment():
     encoder = model.encoder
 
     model = DEC(
-        n_clusters=10, embedding_dim=50, encoder=encoder, cluster_centers=centers
+        n_clusters=10,
+        embedding_dim=latent_dim,
+        encoder=encoder,
+        cluster_centers=centers,
     )
     model.to(device)
 
@@ -142,7 +154,14 @@ def big_experiment():
     optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.01, momentum=0.9)
 
     losses_log, batches_log = train_clustering(
-        model, dl, loss, optimizer, device, epochs=40, test_loader=dl_test, dir = "../models/DEC_resnet50/"
+        model,
+        dl,
+        loss,
+        optimizer,
+        device,
+        epochs=40,
+        test_loader=dl_test,
+        dir="../models/DEC_resnet50/",
     )
 
     save_reconstruction_results(
@@ -156,7 +175,80 @@ def big_experiment():
     )
 
 
+def varying_clusters_experiment():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    filenames_train = get_filenames()[:300000]
+    filenames_test = get_filenames()[:1000]
+    dataset_train = get_sample_patches_dataset(filenames=filenames_train)
+    dataset_test = get_sample_patches_dataset(filenames=filenames_test)
+    dl_train = DataLoader(dataset_train, batch_size=96)
+    dl_test = DataLoader(dataset_test, batch_size=96)
+    latent_dim = 20
+    model = (
+        AutoEncoder(
+            latent_dim=latent_dim,
+            encoder_arch="resnet50",
+            encoder_lock_weights=True,
+            decoder_layers_per_block=[3, 3, 3, 3, 3],
+            decoder_enable_bn=False,
+        )
+        .load_state_dict(torch.load("../models/AE_resnet50/model.pt"))
+        .to(device)
+    )
+
+    print(
+        f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
+    )
+    print("Training Clustering AutoEncoder ...")
+    print("===================================")
+    print(f"Dataset shape: {len(dataset_train)}")
+
+    model.eval()
+    encoder = model.encoder
+    embeddings = get_embeddings(dl_train, model, device)
+
+    for k in [10, 20, 30, 50, 100]:
+        centers = torch.tensor(cluster_embeddings(embeddings, k))
+        model = DEC(
+            n_clusters=k,
+            embedding_dim=latent_dim,
+            encoder=encoder,
+            cluster_centers=centers,
+        ).to(device)
+
+        print(
+            f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
+        )
+
+        loss = nn.KLDivLoss(size_average=False)
+        optimizer = torch.optim.SGD(
+            params=list(model.parameters()), lr=0.01, momentum=0.9
+        )
+
+        losses_log, batches_log = train_clustering(
+            model,
+            dl_train,
+            loss,
+            optimizer,
+            device,
+            epochs=25,
+            test_loader=dl_test,
+            dir=f"../models/DEC_resnet50_clusters_{k}/",
+        )
+
+        save_reconstruction_results(
+            "cluster",
+            losses_log,
+            batches_log,
+            dl_train,
+            model,
+            device,
+            dir=f"../models/DEC_resnet50_clusters_{k}/",
+        )
+
+
 if __name__ == "__main__":
     np.random.seed(42)
-    #small_experiment()
-    big_experiment()
+    # small_experiment()
+    # big_experiment()
+    varying_clusters_experiment()
