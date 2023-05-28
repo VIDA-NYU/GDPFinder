@@ -89,7 +89,7 @@ def train():
                 best_val_loss = val_loss
                 no_improvement_counter = 0
                 history = {'train_losses': train_losses, 'val_losses': val_losses}
-                best_model_path = f'{model_path}/{epoch}_{val_loss:.0f}.pt'
+                best_model_path = f'{model_path}/{epoch}_{val_loss:.{deci}f}.pt'
                 torch.save({'model_state_dict': model.state_dict(), 'history': history}, best_model_path)
             else:
                 no_improvement_counter += 1
@@ -99,7 +99,7 @@ def train():
                 print(f"No improvement in validation loss after {patience} epochs. Training stopped.")
                 break
 
-        print(f"Epoch {epoch}: Train Loss: {train_loss:.0f}, Val Loss: {val_loss:.0f}")
+        print(f"Epoch {epoch}: Train Loss: {train_loss:.{deci}f}, Val Loss: {val_loss:.{deci}f}")
 
 
 # Create model directory
@@ -120,6 +120,12 @@ else:
 
 # Initialize epoch iterator
 epoch_iterator = itertools.count(1)
+
+# Set display options
+if metric == 'mhi':
+    deci = 0
+else:
+    deci = 4
 
 # Train FC layers
 print('Training FC layers only...')
