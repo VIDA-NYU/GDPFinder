@@ -98,3 +98,6 @@ Validation set size: 6524
 Testing set size: 6526
 ../saved_models/ed/2023-05-28_15-52-36
 Training FC layers only...
+Epoch 1: Train Loss: 0.1049, Val Loss: 0.0970
+Epoch 2: Train Loss: 0.0970, Val Loss: 0.0923
+Epoch 3: Train Loss: 0.0943, Val Loss: 0.0899
