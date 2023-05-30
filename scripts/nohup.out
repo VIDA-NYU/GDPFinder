@@ -115,3 +115,12 @@ Epoch 14: Train Loss: 0.0874, Val Loss: 0.0914
 Epoch 15: Train Loss: 0.0872, Val Loss: 0.0824
 Epoch 16: Train Loss: 0.0874, Val Loss: 0.0834
 Epoch 17: Train Loss: 0.0869, Val Loss: 0.0823
+Epoch 18: Train Loss: 0.0859, Val Loss: 0.0828
+Epoch 19: Train Loss: 0.0868, Val Loss: 0.0836
+Epoch 20: Train Loss: 0.0863, Val Loss: 0.0836
+Epoch 21: Train Loss: 0.0862, Val Loss: 0.0815
+Epoch 22: Train Loss: 0.0857, Val Loss: 0.0831
+Epoch 23: Train Loss: 0.0857, Val Loss: 0.0821
+Epoch 24: Train Loss: 0.0857, Val Loss: 0.0834
+Epoch 25: Train Loss: 0.0855, Val Loss: 0.0831
+No improvement in validation loss after 5 epochs. Training stopped.
