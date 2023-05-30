@@ -124,3 +124,10 @@ Epoch 23: Train Loss: 0.0857, Val Loss: 0.0821
 Epoch 24: Train Loss: 0.0857, Val Loss: 0.0834
 Epoch 25: Train Loss: 0.0855, Val Loss: 0.0831
 No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 237589
+Validation set size: 50911
+Testing set size: 50913
+../saved_models/mhi/2023-05-30_17-43-11
+Training FC layers only...
