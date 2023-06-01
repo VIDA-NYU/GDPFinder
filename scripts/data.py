@@ -33,8 +33,35 @@ class PatchesDataset(torch.utils.data.Dataset):
         return img, self.filenames[idx]
 
 
-def save_samples_patch(output_dir = "patches", size = 224):
+class SmallPatchesDataset(torch.utils.data.Dataset):
+    def __init__(self, filenames, resnet=False):
+        self.filenames = filenames
+        self.preprocess = [transforms.ToTensor()]
+        if resnet:
+            self.preprocess.append(
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                )
+            )
+        self.preprocess = transforms.Compose(self.preprocess)
+
+    def __len__(self):
+        return int(len(self.filenames) * 4)
+
+    def __getitem__(self, idx):
+        i = idx // 4
+        j = idx % 4
+        row = j // 2
+        column = j % 2
+        img = Image.open(self.filenames[i])
+        img = img.crop((column * 112, row * 112, (column + 1) * 112, (row + 1) * 112))
+        img = self.preprocess(img)
+        return img, self.filenames[i]
+
+
+def save_samples_patch(output_dir="patches", size=224):
     import rasterio
+
     ### loading the tifs
     sample_scenes = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
     filenames = []
