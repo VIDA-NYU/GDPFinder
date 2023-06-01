@@ -33,17 +33,17 @@ class PatchesDataset(torch.utils.data.Dataset):
         return img, self.filenames[idx]
 
 
-def save_samples_patch():
+def save_samples_patch(output_dir = "patches", size = 224):
     import rasterio
     ### loading the tifs
     sample_scenes = gpd.read_file("../data/output/downloaded_scenes_metadata.geojson")
     filenames = []
-    im = Image.new("RGB", (224, 224), "black")
+    im = Image.new("RGB", (size, size), "black")
     for i, row in tqdm(sample_scenes.iterrows()):
         tif = rasterio.open(f"../data/output/unzipped_files/{row.tif_filename}")
         row = gpd.GeoDataFrame(pd.DataFrame(row).T)
         patches_df = []
-        patches, patches_rects = separate_tif_into_patches(tif, row, False, size=224)
+        patches, patches_rects = separate_tif_into_patches(tif, row, False, size=size)
         filename = row.tif_filename.values[0].replace(".tif", "")
         entity_id = filename.split("_")[0]
 
@@ -52,8 +52,8 @@ def save_samples_patch():
             patch = patches.pop(0)
             patches_rect = patches_rects.pop()
             im.paste(Image.fromarray(patch), (0, 0))
-            im.save(f"../data/output/patches/{filename}_{j}.png")
-            filenames.append(f"../data/output/patches/{filename}_{j}.png")
+            im.save(f"../data/output/{output_dir}/{filename}_{j}.png")
+            filenames.append(f"../data/output/{output_dir}/{filename}_{j}.png")
             patches_df.append([entity_id, j, f"{filename}_{j}.png", patches_rect])
             j += 1
 
@@ -61,7 +61,7 @@ def save_samples_patch():
             patches_df,
             columns=["entity_id", "patche_id", "patche_filename", "geometry"],
         )
-        patches_df.to_file(f"../data/output/patches/{filename}.geojson")
+        patches_df.to_file(f"../data/output/{output_dir}/{filename}.geojson")
 
     return filenames
 
