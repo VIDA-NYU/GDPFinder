@@ -2,7 +2,7 @@ import torch.nn as nn
 from torchvision.models import resnet50, ResNet50_Weights
 
 
-def generate_resnet(train_all, device):
+def generate_resnet(device):
 
     # Define ResNet-50 model
     model = resnet50(weights=ResNet50_Weights.DEFAULT)
@@ -10,7 +10,7 @@ def generate_resnet(train_all, device):
 
     # Freeze the base model parameters
     for param in model.parameters():
-        param.requires_grad = train_all
+        param.requires_grad = False
 
     # Add additional fully connected layers
     model.fc = nn.Sequential(

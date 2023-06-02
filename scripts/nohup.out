@@ -167,3 +167,14 @@ Validation set size: 6524
 Testing set size: 6526
 ../saved_models/density/2023-06-02_01-01-32
 Training FC layers only...
+Epoch 1: Train Loss: 618.0, Val Loss: 480.2
+Epoch 2: Train Loss: 532.1, Val Loss: 459.9
+Epoch 3: Train Loss: 520.0, Val Loss: 478.0
+Epoch 4: Train Loss: 511.0, Val Loss: 464.5
+Epoch 5: Train Loss: 501.9, Val Loss: 457.1
+Epoch 6: Train Loss: 498.4, Val Loss: 451.2
+Epoch 7: Train Loss: 495.7, Val Loss: 468.7
+Epoch 8: Train Loss: 497.0, Val Loss: 440.4
+Epoch 9: Train Loss: 491.0, Val Loss: 439.7
+Epoch 10: Train Loss: 488.7, Val Loss: 470.8
+Epoch 11: Train Loss: 482.5, Val Loss: 463.2

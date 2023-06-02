@@ -2,14 +2,11 @@
 
 ## For the supervised approach:
 
-/notebooks/supervised_approach.ipynb contains data (census and satellite imagery) preparation and analysis.
-
-/saved_models/[metric]/[metric]_saved_model_info.txt contain information about the model runs saved in the directory.
-
+notebooks/supervised_approach.ipynb contains data (census and satellite imagery) preparation and analysis.
 
 ### Example usage to train a model:
-nohup python -u scripts/supervised_training.py --metric ['density', 'mhi', or 'ed'] --imagetype ['patches' or 'resized']
+nohup python -u scripts/supervised_training.py --metric 'density' --imagetype 'resized' --newwidth 1234 --newheight 1234
 
-If images are to be resized, specify additional integer parameters --newwidth and --newheight  
-Optional argument --fconly, defaults to True to train only fully-connected layers. False trains FC then all layers.
-Optional arguement --batchsize, defaults to 8
+See supervised_training.py for more details on the arguements and training process.
+
+In supervised_approach.ipynb and supervised_training.py, the dataset is generated from scripts/create_dataset.py and the model from scripts/supervised_models.py

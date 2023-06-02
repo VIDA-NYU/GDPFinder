@@ -11,16 +11,17 @@ from supervised_models import generate_resnet
 
 parser = argparse.ArgumentParser()
 # Add parameters to the parser
-parser.add_argument('--metric', type=str, required=True, help='specify metric to be estimated, mhi or ed')
-parser.add_argument('--imagetype', type=str, required=True, help='use patches or resized data')
-parser.add_argument('--fconly', type=bool, default=True, help='specify whether to train FC layers only or FC then all layers')
-parser.add_argument('--batchsize', type=int, default=8, help='training batch size')
+parser.add_argument('--metric', type=str, required=True, help='metric to be estimated: density, mhi, or ed')
+parser.add_argument('--imagetype', type=str, required=True, help='data method to use: patches or resized')
+parser.add_argument('--loadmodel', type=str, default=None, help='final path directory and pt of model to load and continue training, e.g., 2023-05-25_23-28-34/11_21753.pt')
+parser.add_argument('--trainall', type=bool, default=False, help='train all layers or fully-connected only')
+parser.add_argument('--batchsize', type=int, default=16, help='training batch size')
 parser.add_argument('--newwidth', type=int, default=None, help='image width, if resizing')
 parser.add_argument('--newheight', type=int, default=None, help='image height, if resizing')
 
 # Parse and access arguments
 args = parser.parse_args()
-metric, image_type, fc_only, batch_size, new_width, new_height = args.metric, args.imagetype, args.fconly, args.batchsize, args.newwidth, args.newheight
+metric, image_type, load_model, train_all, batch_size, new_width, new_height = args.metric, args.imagetype, args.loadmodel, args.trainall, args.batchsize, args.newwidth, args.newheight
 
 print(f'GPU available: {torch.cuda.is_available()}')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -29,15 +30,6 @@ gc.collect()
 
 ## Load data
 train_dataset, val_dataset, test_dataset, train_loader, val_loader, test_loader = generate_dataset(metric, image_type, batch_size, new_width, new_height)
-
-# Load model architechture
-train_all = False
-model, criterion = generate_resnet(train_all, device)
-
-
-# Define optimizer
-learning_rate = 0.001
-optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
 
 # Define training process
 def train():
@@ -108,18 +100,8 @@ model_path = f'../saved_models/{metric}/{current_datetime.strftime("%Y-%m-%d_%H-
 print(model_path)
 os.makedirs(model_path)
 
-# Initialize lists to store historical training and validation loss
-train_losses = []
-val_losses = []
-
-# Specify FC-only training patience
-if fc_only == True:
-    patience = 5
-else:
-    patience = 1
-
-# Initialize epoch iterator
-epoch_iterator = itertools.count(1)
+# Specify patience (number of epochs after which training stops if no validation loss improvement)
+patience = 5
 
 # Set display options
 if metric == 'density':
@@ -129,13 +111,33 @@ if metric == 'mhi':
 if metric=='ed':
     deci = 2
 
-# Train FC layers
-print('Training FC layers only...')
-train()
+# Generate model
+model, criterion = generate_resnet(device)
 
+# Load previous model, if desired, and initialize history and epoch
+if load_model != None:
+    checkpoint = torch.load(f'../saved_models/{metric}/{load_model}')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    history = checkpoint['history']
+    train_losses = history['train_losses']
+    val_losses = history['val_losses']
+    epoch_iterator = itertools.count(len(val_losses)+1)
+else:
+    train_losses = []
+    val_losses = []
+    epoch_iterator = itertools.count(1)
+
+# Define optimizer
+learning_rate = 0.001
+optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
+
+# Train FC layers only, if desired
+if train_all == False:
+    print('Training FC layers only...')
+    train()
 
 # Train all layers, if desired
-if fc_only == False:
+if train_all == True:
 
     # Unfreeze the base model parameters
     for param in model.parameters():
@@ -145,6 +147,5 @@ if fc_only == False:
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
 
     # Train all layers
-    patience = 5
     print('Training all layers...')
     train()
