@@ -131,3 +131,39 @@ Validation set size: 50911
 Testing set size: 50913
 ../saved_models/mhi/2023-05-30_17-43-11
 Training FC layers only...
+Epoch 1: Train Loss: 28951, Val Loss: 26736
+Epoch 2: Train Loss: 27658, Val Loss: 25994
+Epoch 3: Train Loss: 27224, Val Loss: 25933
+Epoch 4: Train Loss: 26972, Val Loss: 25562
+Epoch 5: Train Loss: 26769, Val Loss: 25224
+Epoch 6: Train Loss: 26656, Val Loss: 25242
+Epoch 7: Train Loss: 26534, Val Loss: 26321
+Epoch 8: Train Loss: 26443, Val Loss: 25217
+Epoch 9: Train Loss: 26382, Val Loss: 25789
+Epoch 10: Train Loss: 26278, Val Loss: 25034
+Epoch 11: Train Loss: 26216, Val Loss: 24649
+Epoch 12: Train Loss: 26135, Val Loss: 24635
+Epoch 13: Train Loss: 26158, Val Loss: 24785
+Epoch 14: Train Loss: 26136, Val Loss: 24517
+Epoch 15: Train Loss: 26073, Val Loss: 24718
+Epoch 16: Train Loss: 26015, Val Loss: 25650
+Epoch 17: Train Loss: 26046, Val Loss: 24505
+Epoch 18: Train Loss: 25992, Val Loss: 24444
+Epoch 19: Train Loss: 25985, Val Loss: 24707
+Epoch 20: Train Loss: 25965, Val Loss: 24697
+Epoch 21: Train Loss: 25934, Val Loss: 24437
+Epoch 22: Train Loss: 25961, Val Loss: 24586
+Epoch 23: Train Loss: 25894, Val Loss: 24572
+Epoch 24: Train Loss: 25953, Val Loss: 24141
+Epoch 25: Train Loss: 25908, Val Loss: 24508
+Epoch 26: Train Loss: 25829, Val Loss: 24389
+Epoch 27: Train Loss: 25835, Val Loss: 24498
+Epoch 28: Train Loss: 25839, Val Loss: 24897
+No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 30447
+Validation set size: 6524
+Testing set size: 6526
+../saved_models/density/2023-06-02_01-01-32
+Training FC layers only...

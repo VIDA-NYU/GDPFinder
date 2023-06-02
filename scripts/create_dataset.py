@@ -25,10 +25,13 @@ class CustomDataset(Dataset):
         image = Image.open(image_path)
 
         # Extract the label from the image name
+        filename_parts = image_name.split("_")
+        if self.metric == 'density':
+            label = float(filename_parts[-3])
         if self.metric == 'mhi':
-            label = int(image_name.split('_')[-2].split('.')[0])
-        else:
-            label = float(image_name.rsplit("_", 1)[-1].rsplit(".", 1)[0])   
+            label = int(filename_parts[-2])
+        if self.metric == 'ed':
+            label = float(filename_parts[-1].replace(".tif",""))
 
         # Apply transformations if provided
         image = self.transform(image)

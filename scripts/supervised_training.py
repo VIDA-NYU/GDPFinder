@@ -122,10 +122,12 @@ else:
 epoch_iterator = itertools.count(1)
 
 # Set display options
+if metric == 'density':
+    deci = 1
 if metric == 'mhi':
     deci = 0
-else:
-    deci = 4
+if metric=='ed':
+    deci = 2
 
 # Train FC layers
 print('Training FC layers only...')
