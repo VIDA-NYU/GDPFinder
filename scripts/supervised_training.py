@@ -13,15 +13,15 @@ parser = argparse.ArgumentParser()
 # Add parameters to the parser
 parser.add_argument('--metric', type=str, required=True, help='metric to be estimated: density, mhi, or ed')
 parser.add_argument('--imagetype', type=str, required=True, help='data method to use: patches or resized')
-parser.add_argument('--loadmodel', type=str, default=None, help='final path directory and pt of model to load and continue training, e.g., 2023-05-25_23-28-34/11_21753.pt')
 parser.add_argument('--trainall', type=bool, default=False, help='train all layers or fully-connected only')
-parser.add_argument('--batchsize', type=int, default=16, help='training batch size')
+parser.add_argument('--loadmodel', type=str, default=None, help='final path directory and pt of model to load and continue training, e.g., 2023-05-25_23-28-34/11_21753.pt')
 parser.add_argument('--newwidth', type=int, default=None, help='image width, if resizing')
 parser.add_argument('--newheight', type=int, default=None, help='image height, if resizing')
+parser.add_argument('--batchsize', type=int, default=16, help='training batch size')
 
 # Parse and access arguments
 args = parser.parse_args()
-metric, image_type, load_model, train_all, batch_size, new_width, new_height = args.metric, args.imagetype, args.loadmodel, args.trainall, args.batchsize, args.newwidth, args.newheight
+metric, image_type, train_all, load_model, new_width, new_height, batch_size = args.metric, args.imagetype, args.trainall, args.loadmodel, args.newwidth, args.newheight, args.batchsize
 
 print(f'GPU available: {torch.cuda.is_available()}')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -178,3 +178,20 @@ Epoch 8: Train Loss: 497.0, Val Loss: 440.4
 Epoch 9: Train Loss: 491.0, Val Loss: 439.7
 Epoch 10: Train Loss: 488.7, Val Loss: 470.8
 Epoch 11: Train Loss: 482.5, Val Loss: 463.2
+Epoch 12: Train Loss: 480.6, Val Loss: 440.9
+Epoch 13: Train Loss: 474.3, Val Loss: 438.7
+Epoch 14: Train Loss: 476.7, Val Loss: 438.1
+Epoch 15: Train Loss: 473.4, Val Loss: 464.0
+Epoch 16: Train Loss: 474.8, Val Loss: 428.8
+Epoch 17: Train Loss: 469.2, Val Loss: 462.1
+Epoch 18: Train Loss: 476.8, Val Loss: 435.6
+Epoch 19: Train Loss: 471.9, Val Loss: 429.4
+Epoch 20: Train Loss: 471.2, Val Loss: 456.6
+No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 30447
+Validation set size: 6524
+Testing set size: 6526
+../saved_models/density/2023-06-03_16-25-11
+Training all layers...

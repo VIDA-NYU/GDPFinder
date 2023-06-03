@@ -39,7 +39,7 @@ class CustomDataset(Dataset):
         return image, label
 
 
-def generate_dataset(metric, image_type, batch_size=8, new_width=None, new_height=None):
+def generate_dataset(metric, image_type, batch_size=16, new_width=None, new_height=None):
     
     # Define image directory, batch size, and the transformations to apply to the images based on image type
     if image_type == 'patches':
