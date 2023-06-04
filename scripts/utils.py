@@ -82,11 +82,11 @@ def plot_loss_curve(losses_log, dir=None):
         plt.show()
 
 
-def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
-    # inv_normalize = transforms.Normalize(
-    #    mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
-    #    std=[1/0.229, 1/0.224, 1/0.225]
-    # )
+def plot_reconstruction(model, dl, device, n_samples=5, dir=None):
+    inv_normalize = transforms.Normalize(
+        mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
+        std=[1/0.229, 1/0.224, 1/0.225]
+    )
 
     imgs = []
     reconstructions = []
@@ -94,10 +94,11 @@ def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
     for batch, _ in dl:
         for j in range(batch.shape[0]):
             img = batch[j].unsqueeze(0)
+            #imgs.append(inv_normalize(img).cpu().detach().numpy())
             imgs.append(img.cpu().detach().numpy())
             img = img.to(device)
             reconstruction = model(img)[1]
-            # reconstruction = inv_normalize(reconstruction)
+            #reconstruction = inv_normalize(reconstruction)
             reconstructions.append(reconstruction.cpu().detach().numpy())
             k += 1
             if k == n_samples:
@@ -108,10 +109,15 @@ def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
     imgs = np.concatenate(imgs, axis=0)
     reconstructions = np.concatenate(reconstructions, axis=0)
 
-    fig, axs = plt.subplots(nrows=n_samples, ncols=2, figsize=(10, 10))
+    fig, axs = plt.subplots(nrows=n_samples, ncols=2, figsize=(4, 15))
     for i in range(n_samples):
-        axs[i, 0].imshow(imgs[i].transpose(1, 2, 0))
-        axs[i, 1].imshow(reconstructions[i].transpose(1, 2, 0))
+        img_ = imgs[i].transpose(1, 2, 0)
+        img_ = np.clip(img_, 0, 1)
+        rec_ = reconstructions[i].transpose(1, 2, 0)
+        rec_ = np.clip(rec_, 0, 1)
+
+        axs[i, 0].imshow(img_)
+        axs[i, 1].imshow(rec_)
     if dir is not None:
         plt.savefig(dir)
         plt.close()
