@@ -4,7 +4,7 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 
-from data import get_sample_patches_dataset, get_filenames
+from data import get_sample_patches_dataset, get_filenames, SmallPatchesDataset, get_filenames_all_cities
 from models import AutoEncoder, SmallAutoEncoder, DEC
 from train import train_reconstruction, train_clustering
 from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
@@ -177,10 +177,10 @@ def big_experiment():
 
 def big_experiment_v2():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = get_filenames()[:1000000]
-    filenames_test = get_filenames()[:int(96*4)]
-    dataset = get_sample_patches_dataset(filenames=filenames)
-    dataset_test = get_sample_patches_dataset(filenames=filenames_test)
+    filenames = get_filenames_all_cities(2250)
+    filenames_test = filenames[:96]
+    dataset = SmallPatchesDataset(filenames, resnet = False)
+    dataset_test = SmallPatchesDataset(filenames_test, resnet = False)
     dl = DataLoader(dataset, batch_size=96)
     dl_test = DataLoader(dataset_test, batch_size=96)
 
@@ -210,14 +210,14 @@ def big_experiment_v2():
         loss,
         optimizer,
         device,
-        epochs=4,
+        epochs=10,
         test_loader=dl_test,
         dir="../models/AE_resnet50_v2/",
     )
     save_reconstruction_results(
         "reconstruction",
         losses_log,
-        batches_log,
+        batches_log,    
         dl,
         model,
         device,
@@ -297,13 +297,10 @@ def varying_clusters_experiment():
 
 def varying_clusters_experiment_v2():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #filenames_train = get_filenames()[:1000000]
-    #filenames_test = get_filenames()[:1000]
-    filenames_train = os.listdir("../data/output/ny_patches")
-    filenames_train = [os.path.join("../data/output/patches", f) for f in filenames_train if f.endswith(".png")]
-    filenames_test = filenames_train[:1000]
-    dataset_train = get_sample_patches_dataset(filenames=filenames_train)
-    dataset_test = get_sample_patches_dataset(filenames=filenames_test)
+    filenames_train = get_filenames_all_cities(1000)
+    filenames_test = filenames_train[:96]
+    dataset_train = SmallPatchesDataset(filenames_train, resnet = False)
+    dataset_test = SmallPatchesDataset(filenames_test, resnet = False)
     dl_train = DataLoader(dataset_train, batch_size=96)
     dl_test = DataLoader(dataset_test, batch_size=96)
     latent_dim = 100
