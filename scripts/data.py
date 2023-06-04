@@ -36,7 +36,7 @@ class PatchesDataset(torch.utils.data.Dataset):
 class SmallPatchesDataset(torch.utils.data.Dataset):
     def __init__(self, filenames, resnet=False):
         self.filenames = filenames
-        self.preprocess = [transforms.ToTensor()]
+        self.preprocess = [transforms.ToTensor(), transforms.Resize((224, 224))]
         if resnet:
             self.preprocess.append(
                 transforms.Normalize(
@@ -108,6 +108,27 @@ def get_filenames():
     np.random.shuffle(filenames)
     return filenames
 
+def get_filenames_all_cities(n):
+    patches_df = os.listdir("../data/output/patches")
+    patches_df = ["../data/output/patches/" + f for f in patches_df if f.endswith(".geojson")]
+    patches_df = gpd.GeoDataFrame(pd.concat([gpd.read_file(f) for f in patches_df]))
+
+    scenes_files = [f for f in os.listdir("../data/scenes_metadata") if f.endswith(".geojson")]
+    scenes_df = []
+    for f in scenes_files:
+        new_df = gpd.read_file("../data/scenes_metadata/" + f)
+        city_state = f.replace("_last_scene.geojson", "")
+        new_df["city_state"] = city_state
+        scenes_df.append(new_df)
+    scenes_df = pd.concat(scenes_df)
+    scenes_df = scenes_df.drop(columns = "geometry")
+
+    patches_df = patches_df.merge(scenes_df, on = "entity_id")
+    selected_patches = patches_df.groupby("city_state").sample(n)
+    filenames = selected_patches.patche_filename.tolist()
+    np.random.shuffle(filenames)
+    filenames = ["../data/output/patches/" + f for f in filenames]
+    return filenames
 
 if __name__ == "__main__":
     dataset = get_sample_patches_dataset()
