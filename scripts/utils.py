@@ -134,26 +134,7 @@ def save_reconstruction_results(
 
     plot_loss_curve(losses_log, dir=dir + "loss_curve.png")
     plot_loss_curve(batches_log, dir=dir + "batch_loss_curve.png")
-    if mode == "cluster":
-        #embeddings = get_embeddings(dl, model.encoder, device)
-        embeddings = []
-        labels = []
-        with torch.no_grad():
-            for batch, _ in dl:
-                batch = batch.to(device)
-                embedding = model.encoder(batch)
-                label = model(batch)
-                embeddings.append(embedding.cpu().detach().numpy())
-                labels.append(label.cpu().detach().numpy())
-        embeddings = np.concatenate(embeddings, axis=0)
-        embeddings = embeddings.reshape(embeddings.shape[0], -1)
-        labels = np.concatenate(labels, axis=0)
-        labels = labels.argmax(axis=1)
-        #labels = get_clusters(dl, model, device)
-        plot_embedding_proj(embeddings, labels=labels, dir=dir + "embedding.png")
-    elif mode == "reconstruction":
-        embeddings = get_embeddings(dl, model, device)
-        embeddings = embeddings.reshape(embeddings.shape[0], -1)
-        plot_embedding_proj(embeddings, dir=dir + "embedding.png")
-        plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
     torch.save(model.state_dict(), dir + "model.pt")
+    if mode == "reconstruction":
+        plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
+ 
