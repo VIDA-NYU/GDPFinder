@@ -195,3 +195,24 @@ Validation set size: 6524
 Testing set size: 6526
 ../saved_models/density/2023-06-03_16-25-11
 Training all layers...
+Epoch 17: Train Loss: 857.0, Val Loss: 666.8
+Epoch 18: Train Loss: 755.7, Val Loss: 652.4
+Epoch 19: Train Loss: 698.0, Val Loss: 912.6
+Epoch 20: Train Loss: 672.5, Val Loss: 595.8
+Epoch 21: Train Loss: 651.7, Val Loss: 572.9
+Epoch 22: Train Loss: 634.6, Val Loss: 620.5
+Epoch 23: Train Loss: 631.1, Val Loss: 550.1
+Epoch 24: Train Loss: 627.2, Val Loss: 550.3
+Epoch 25: Train Loss: 618.8, Val Loss: 570.3
+Epoch 26: Train Loss: 607.9, Val Loss: 639.0
+Epoch 27: Train Loss: 603.0, Val Loss: 553.0
+Epoch 28: Train Loss: 595.5, Val Loss: 542.8
+Epoch 29: Train Loss: 586.6, Val Loss: 592.7
+Epoch 30: Train Loss: 582.7, Val Loss: 565.4
+Epoch 31: Train Loss: 579.0, Val Loss: 539.5
+Epoch 32: Train Loss: 575.3, Val Loss: 523.9
+Epoch 33: Train Loss: 568.1, Val Loss: 526.5
+Epoch 34: Train Loss: 568.2, Val Loss: 513.6
+Epoch 35: Train Loss: 562.6, Val Loss: 604.8
+Epoch 36: Train Loss: 564.8, Val Loss: 558.5
+Epoch 37: Train Loss: 561.6, Val Loss: 537.5
