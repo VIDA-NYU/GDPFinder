@@ -216,3 +216,13 @@ Epoch 34: Train Loss: 568.2, Val Loss: 513.6
 Epoch 35: Train Loss: 562.6, Val Loss: 604.8
 Epoch 36: Train Loss: 564.8, Val Loss: 558.5
 Epoch 37: Train Loss: 561.6, Val Loss: 537.5
+Epoch 38: Train Loss: 558.9, Val Loss: 590.5
+No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 30447
+Validation set size: 6524
+Testing set size: 6526
+../saved_models/density/2023-06-07_14-24-49
+Training FC layers only...
+Epoch 1: Train Loss: 629.2, Val Loss: 482.6
