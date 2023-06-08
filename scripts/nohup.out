@@ -226,3 +226,21 @@ Testing set size: 6526
 ../saved_models/density/2023-06-07_14-24-49
 Training FC layers only...
 Epoch 1: Train Loss: 629.2, Val Loss: 482.6
+Epoch 2: Train Loss: 547.1, Val Loss: 538.0
+Epoch 3: Train Loss: 532.9, Val Loss: 483.4
+Epoch 4: Train Loss: 531.4, Val Loss: 467.3
+Epoch 5: Train Loss: 521.1, Val Loss: 459.7
+Epoch 6: Train Loss: 515.0, Val Loss: 458.3
+Epoch 7: Train Loss: 512.1, Val Loss: 489.3
+Epoch 8: Train Loss: 511.9, Val Loss: 461.5
+Epoch 9: Train Loss: 512.4, Val Loss: 499.2
+Epoch 10: Train Loss: 503.2, Val Loss: 472.8
+No improvement in validation loss after 5 epochs. Training stopped.
+
+GPU available: True
+Training set size: 30447
+Validation set size: 6524
+Testing set size: 6526
+../saved_models/ed/2023-06-08_14-49-02
+Training FC layers only...
+Epoch 1: Train Loss: 17.70, Val Loss: 17.72
