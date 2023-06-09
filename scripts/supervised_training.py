@@ -12,7 +12,7 @@ from supervised_models import generate_resnet
 parser = argparse.ArgumentParser()
 # Add parameters to the parser
 parser.add_argument('--metric', type=str, required=True, help='metric to be estimated: density, mhi, or ed')
-parser.add_argument('--imagetype', type=str, required=True, help='data method to use: patches or resized')
+parser.add_argument('--imagetype', type=str, required=True, help='data method to use: patch or resize')
 parser.add_argument('--trainall', type=bool, default=False, help='train all layers or fully-connected only')
 parser.add_argument('--loadmodel', type=str, default=None, help='final path directory and pt of model to load and continue training, e.g., 2023-05-25_23-28-34/11_21753.pt')
 parser.add_argument('--newwidth', type=int, default=None, help='image width, if resizing')

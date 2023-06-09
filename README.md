@@ -8,7 +8,7 @@ notebooks/supervised_approach.ipynb contains data (census and satellite imagery)
 
 Within scripts directory:
 
-nohup python -u supervised_training.py --metric 'density' --imagetype 'resized' --newwidth 1234 --newheight 1234
+nohup python -u supervised_training.py --metric 'density' --imagetype 'resize' --newwidth 1234 --newheight 1234
 
 See supervised_training.py for more details on the arguements and training process.
 

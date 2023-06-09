@@ -42,13 +42,13 @@ class CustomDataset(Dataset):
 def generate_dataset(metric, image_type, batch_size=16, new_width=None, new_height=None):
     
     # Define image directory, batch size, and the transformations to apply to the images based on image type
-    if image_type == 'patches':
+    if image_type == 'patch':
         data_dir = '../data/patches'
         transform = transforms.Compose([
             transforms.ToTensor()
         ])
 
-    if image_type == 'resized': 
+    if image_type == 'resize': 
         data_dir = '../data/crops'
         transform = transforms.Compose([
             transforms.Resize((new_width, new_height)),
