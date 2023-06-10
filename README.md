@@ -2,7 +2,7 @@
 
 ## For the supervised approach:
 
-notebooks/supervised_approach.ipynb contains data (census and satellite imagery) preparation and analysis. Testing saved models and interpreting results (explainability) is also contained in the notebook.
+notebooks/supervised_approach.ipynb contains data (census and satellite imagery) preparation and analysis. Testing saved models and interpreting results is also contained in the notebook.
 
 ### Example usage to train a model:
 
