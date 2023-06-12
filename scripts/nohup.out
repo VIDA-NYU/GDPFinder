@@ -288,3 +288,22 @@ Validation set size: 50911
 Testing set size: 50913
 ../saved_models/ed/2023-06-10_19-50-24
 Training FC layers only...
+Epoch 1: Train Loss: 16.84, Val Loss: 15.55
+Epoch 2: Train Loss: 15.98, Val Loss: 14.89
+Epoch 3: Train Loss: 15.62, Val Loss: 14.35
+Epoch 4: Train Loss: 15.34, Val Loss: 14.18
+Epoch 5: Train Loss: 15.22, Val Loss: 14.38
+Epoch 6: Train Loss: 15.08, Val Loss: 14.53
+Epoch 7: Train Loss: 14.94, Val Loss: 14.93
+Epoch 8: Train Loss: 14.88, Val Loss: 14.13
+Epoch 9: Train Loss: 14.82, Val Loss: 13.79
+Epoch 10: Train Loss: 14.75, Val Loss: 13.68
+Epoch 11: Train Loss: 14.66, Val Loss: 13.64
+Epoch 12: Train Loss: 14.63, Val Loss: 14.02
+Epoch 13: Train Loss: 14.58, Val Loss: 14.54
+Epoch 14: Train Loss: 14.56, Val Loss: 13.48
+Epoch 15: Train Loss: 14.53, Val Loss: 13.62
+Epoch 16: Train Loss: 14.50, Val Loss: 13.57
+Epoch 17: Train Loss: 14.49, Val Loss: 13.56
+Epoch 18: Train Loss: 14.48, Val Loss: 13.92
+No improvement in validation loss after 5 epochs. Training stopped.
