@@ -1,12 +1,12 @@
-from torchvision.models import resnet50, ResNet50_Weights
-#from torchgeo.models import resnet50, ResNet50_Weights
+#from torchvision.models import resnet50, ResNet50_Weights
+from torchgeo.models import resnet50, ResNet50_Weights
 import torch.nn as nn
 
 def generate_resnet(device):
     
     # Define ResNet-50 model with pre-trained weights
-    model = resnet50(weights=ResNet50_Weights.DEFAULT)
-    #model = resnet50(weights=ResNet50_Weights.SENTINEL2_RGB_MOCO, pretrained=True)
+    #model = resnet50(weights=ResNet50_Weights.DEFAULT)
+    model = resnet50(weights=ResNet50_Weights.SENTINEL2_RGB_MOCO, pretrained=True)
 
     # Freeze the base model parameters
     for param in model.parameters():
