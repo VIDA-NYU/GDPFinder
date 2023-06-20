@@ -7,19 +7,22 @@ from tqdm import tqdm
 import handle_tif_images
 import data
 
+
 def download_patches():
     vidagpu_username = input()
     vidagpu_password = input()
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('vidagpu.poly.edu', username=vidagpu_username, password=vidagpu_password)
+    ssh.connect(
+        "vidagpu.poly.edu", username=vidagpu_username, password=vidagpu_password
+    )
     sftp = ssh.open_sftp()
-    sftp.chdir('/vida/work/GDPFinder/GDPFinder/data/output/unzipped_files')
+    sftp.chdir("/vida/work/GDPFinder/GDPFinder/data/output/unzipped_files")
     dir_contents = sftp.listdir()
     # keep only tif files
-    dir_contents = [f for f in dir_contents if f.endswith('.tif')]
+    dir_contents = [f for f in dir_contents if f.endswith(".tif")]
     print(f"Total of {len(dir_contents)} tif files")
-    
+
     dir_contents.sort()
     n = 1000
     for file in tqdm(dir_contents[:n]):
@@ -29,15 +32,13 @@ def download_patches():
         df = handle_tif_images.create_files_df()
         df.to_file("../data/output/downloaded_scenes_metadata.geojson")
 
-        data.save_samples_patch(
-            output_dir = "old_patches",
-            size = 224
-        )
+        data.save_samples_patch(output_dir="old_patches", size=224)
 
         os.remove("../data/output/unzipped_files/" + file)
-    
+
     sftp.close()
     ssh.close()
+
 
 def separate_patches_by_city_state():
     city_scenes_geojson = os.listdir("../data/scenes_metadata")
@@ -53,12 +54,18 @@ def separate_patches_by_city_state():
 
         for i, row in city_df.iterrows():
             scene_id = row["entity_id"]
-            patches_files_scene = [p for p in patches_files if p.split("_")[0] == scene_id]
-            patches_files_scene = [p for p in patches_files_scene if os.path.exists("../data/output/old_patches/" + p)]
+            patches_files_scene = [
+                p for p in patches_files if p.split("_")[0] == scene_id
+            ]
+            patches_files_scene = [
+                p
+                for p in patches_files_scene
+                if os.path.exists("../data/output/old_patches/" + p)
+            ]
             for patches_file in patches_files_scene:
                 shutil.move(
                     "../data/output/old_patches/" + patches_file,
-                    f"../data/output/patches/{city_state}/{patches_file}"
+                    f"../data/output/patches/{city_state}/{patches_file}",
                 )
 
 
