@@ -111,7 +111,7 @@ def get_filenames(n):
             if p.endswith(".png")
         ]
         if len(patches_files) > n:
-            patches_files = np.random.choice(patches_files, size=n).tolist()
+            patches_files = np.random.choice(patches_files, size=n, replace = False).tolist()
         filenames += patches_files
 
     np.random.shuffle(filenames)
