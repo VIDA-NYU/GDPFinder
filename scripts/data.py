@@ -100,35 +100,23 @@ def get_sample_patches_dataset(filenames=None, resize=None, resnet=False):
     return dataset
 
 
-def get_filenames():
-    filenames = os.listdir("../data/output/patches")
-    filenames = [
-        os.path.join("../data/output/patches", f) for f in filenames if f[-3:] == "png"
-    ]
+def get_filenames(n):
+    cities_folders = os.listdir("../data/output/patches")
+    filenames = []
+    for city_folder in cities_folders:
+        patches_files = os.listdir("../data/output/patches/" + city_folder)
+        patches_files = [
+            f"../data/output/patches/{city_folder}/{p}"
+            for p in patches_files
+            if p.endswith(".png")
+        ]
+        if len(patches_files) > n:
+            patches_files = np.random.choice(patches_files, size=n).tolist()
+        filenames += patches_files
+
     np.random.shuffle(filenames)
     return filenames
 
-def get_filenames_all_cities(n):
-    patches_df = os.listdir("../data/output/patches")
-    patches_df = ["../data/output/patches/" + f for f in patches_df if f.endswith(".geojson")]
-    patches_df = gpd.GeoDataFrame(pd.concat([gpd.read_file(f) for f in patches_df]))
-
-    scenes_files = [f for f in os.listdir("../data/scenes_metadata") if f.endswith(".geojson")]
-    scenes_df = []
-    for f in scenes_files:
-        new_df = gpd.read_file("../data/scenes_metadata/" + f)
-        city_state = f.replace("_last_scene.geojson", "")
-        new_df["city_state"] = city_state
-        scenes_df.append(new_df)
-    scenes_df = pd.concat(scenes_df)
-    scenes_df = scenes_df.drop(columns = "geometry")
-
-    patches_df = patches_df.merge(scenes_df, on = "entity_id")
-    selected_patches = patches_df.groupby("city_state").sample(n)
-    filenames = selected_patches.patche_filename.tolist()
-    np.random.shuffle(filenames)
-    filenames = ["../data/output/patches/" + f for f in filenames]
-    return filenames
 
 if __name__ == "__main__":
     dataset = get_sample_patches_dataset()
