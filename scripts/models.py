@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 class SmallAutoEncoder(nn.Module):
     def __init__(self, latent_dim=64, layers_per_block=1):
         super(SmallAutoEncoder, self).__init__()
-        
+
         n_blocks = 3
         blocks_in_channel = [3, 8, 16]
         blocks_out_channel = [8, 16, 32]
@@ -67,7 +67,7 @@ class SmallAutoEncoder(nn.Module):
                     kernel_size=3,
                     stride=2,
                     padding=1,
-                    output_padding= 0 if b == 0 else 1,
+                    output_padding=0 if b == 0 else 1,
                 )
             )
             self.decoder.append(nn.BatchNorm2d(blocks_in_channel[b]))
@@ -83,7 +83,7 @@ class SmallAutoEncoder(nn.Module):
                     )
                 )
                 self.decoder.append(nn.ReLU(True))
-            
+
         self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
         self.decoder.append(nn.Sigmoid())
         self.decoder = nn.Sequential(*self.decoder)
@@ -124,12 +124,12 @@ class AutoEncoder(nn.Module):
         super(AutoEncoder, self).__init__()
         # assert latent_dim % 49 == 0
         self.encoder = PetrainedEncoder(latent_dim, encoder_arch, encoder_lock_weights)
-        #self.decoder = Decoder(
+        # self.decoder = Decoder(
         #    latent_dim,
         #    # decoder_latent_dim_channels,
         #    decoder_layers_per_block,
         #    decoder_enable_bn,
-        #)
+        # )
 
         self.decoder = []
         self.decoder += [
@@ -151,7 +151,7 @@ class AutoEncoder(nn.Module):
                     kernel_size=3,
                     stride=2,
                     padding=1,
-                    output_padding= 1 # if b == 0 else 0,
+                    output_padding=1,  # if b == 0 else 0,
                 )
             )
             self.decoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
@@ -167,11 +167,10 @@ class AutoEncoder(nn.Module):
                     )
                 )
                 self.decoder.append(nn.ReLU(True))
-            
+
         self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
         self.decoder.append(nn.Sigmoid())
         self.decoder = nn.Sequential(*self.decoder)
-
 
     def forward(self, x):
         encoded = self.encoder(x)
@@ -343,7 +342,7 @@ class DecoderBlock(nn.Module):
             self.add_module("1 DecoderLayer", layer)
         else:
             for i in range(layers):
-                #if i == 0:
+                # if i == 0:
                 #    layer = DecoderLayer(
                 #        input_dim=input_dim, output_dim=hidden_dim, enable_bn=enable_bn
                 #    )
