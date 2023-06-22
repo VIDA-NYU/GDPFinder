@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import requests
-from sklearn.tree import KDTree
+from sklearn.neighbors import KDTree
 from tqdm import tqdm
 
 import os
@@ -297,7 +297,7 @@ def get_patches_inside_blocks(patches, blocks):
         # verify if it intersects the k closest patches
         centroid = np.array(row["geometry"].centroid.coords).reshape(1, 2)
         idx_closest = tree.query(centroid, k = k)[1][0]
-        intersection_ratio = (patches.iloc[idx_closest].geometry.intersection(row.geometry).area / block_area).values
+        intersection_ratio = (patches.iloc[idx_closest].geometry.intersection(row.geometry).area / patch_area).values
 
         block_patches = ""
         # for each of the closest patches
@@ -334,7 +334,7 @@ def compute_blocks_and_patches_relation():
         patches_of_city = os.listdir("../data/output/patches/" + city_state)
         patches_of_city = [s for s in patches_of_city if s.endswith(".geojson")]
         patches_of_city = gpd.GeoDataFrame(pd.concat([gpd.read_file("../data/output/patches/" + city_state + "/" + s) for s in patches_of_city]))
-
+        patches_of_city["patche_filename"] = "../data/output/patches/" + city_state + "/" + patches_of_city.patche_filename
         # run function that identify the relation between them
         relation = get_patches_inside_blocks(patches_of_city, blocks_of_city)
         
@@ -343,9 +343,9 @@ def compute_blocks_and_patches_relation():
     
 
 if __name__ == "__main__":
-    census_df = request_census_data()
-    blocks_df = get_blocks_df()
-    blocks_df = blocks_df.merge(census_df, on=["state", "county", "tract", "block group"], how="left")
-    blocks_df.to_file("../data/census_blocks.geojson")
+    # census_df = request_census_data()
+    # blocks_df = get_blocks_df()
+    # blocks_df = blocks_df.merge(census_df, on=["state", "county", "tract", "block group"], how="left")
+    # blocks_df.to_file("../data/census_blocks.geojson")
     compute_blocks_and_patches_relation()
 
