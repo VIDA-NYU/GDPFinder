@@ -117,9 +117,7 @@ class AutoEncoder(nn.Module):
         latent_dim,
         encoder_arch="vgg16",
         encoder_lock_weights=True,
-        decoder_latent_dim_channels=128,
         decoder_layers_per_block=[2, 2, 3, 3, 3],
-        decoder_enable_bn=False,
     ):
         super(AutoEncoder, self).__init__()
         # assert latent_dim % 49 == 0
@@ -494,3 +492,94 @@ def target_distribution(batch):
     """
     weight = (batch**2) / torch.sum(batch, 0)
     return (weight.t() / torch.sum(weight, 1)).t()
+
+
+class DenoisingAutoEncoder(nn.Module):
+    def __init__(self, latent_dim, layers_per_block):
+        super(DenoisingAutoEncoder, self).__init__()
+        n_blocks = 5
+
+        # setting encoder
+        self.encoder = []
+        blocks_in_channel = [3, 8, 64, 128, 64]
+        blocks_out_channel = [8, 64, 128, 64, 8]
+
+        for b in range(n_blocks):
+            self.encoder += [
+                nn.Conv2d(
+                    blocks_in_channel[b],
+                    blocks_out_channel[b],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                ),
+                nn.BatchNorm2d(blocks_out_channel[b]),
+                nn.ReLU(True),
+            ]
+
+            for layer in range(layers_per_block[b] - 1):
+                self.encoder += [
+                    nn.Conv2d(
+                        blocks_out_channel[b],
+                        blocks_out_channel[b],
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    ),
+                    nn.ReLU(True),
+                ]
+
+        self.encoder += [
+            nn.Flatten(1),
+            nn.Linear(8 * 7 * 7, 256),
+            nn.ReLU(),
+            nn.Linear(256, latent_dim),
+        ]
+        self.encoder = nn.Sequential(*self.encoder)
+
+        # setting decoder
+        self.decoder = []
+        self.decoder += [
+            nn.Linear(latent_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 7 * 7 * 8),
+            nn.ReLU(),
+            nn.Unflatten(dim=1, unflattened_size=(8, 7, 7)),
+        ]
+
+        blocks_in_channel = [8, 64, 128, 64, 8]
+        blocks_out_channel = [64, 128, 64, 8, 3]
+        for b in range(n_blocks):
+            self.decoder.append(
+                nn.ConvTranspose2d(
+                    blocks_in_channel[b],
+                    blocks_out_channel[b],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    output_padding=1,  # if b == 0 else 0,
+                )
+            )
+            self.decoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
+            self.decoder.append(nn.ReLU(True))
+            for layer in range(layers_per_block[b] - 1):
+                self.decoder.append(
+                    nn.Conv2d(
+                        blocks_out_channel[b],
+                        blocks_out_channel[b],
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                    )
+                )
+                self.decoder.append(nn.ReLU(True))
+
+        self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
+        self.decoder.append(nn.Sigmoid())
+        self.decoder = nn.Sequential(*self.decoder)
+
+    def forward(self, x):
+        x_noisy = x + torch.normal(0, 0.1, size = x.shape, device = x.device)
+        encoded = self.encoder(x_noisy)
+        decoded = self.decoder(encoded)
+        return encoded, decoded
