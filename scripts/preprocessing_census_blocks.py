@@ -1,6 +1,9 @@
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 import requests
+from sklearn.tree import KDTree
+from tqdm import tqdm
 
 import os
 
@@ -276,10 +279,73 @@ def get_blocks_df():
     blocks_df = blocks_df[['state', 'county', 'tract', 'block group', 'geometry']]
     return blocks_df
 
+def get_patches_inside_blocks(patches, blocks):
+    patches = patches.to_crs("epsg:3395")
+    blocks = blocks.to_crs("epsg:3395")
+
+    # build tree with patches centers
+    patches_centers = np.stack(patches.geometry.apply(lambda x : np.array(x.centroid.coords)).values).squeeze()
+    tree = KDTree(patches_centers)
+
+    patch_area = patches.area.mean()
+    relation = []
+    # for each patch
+    for i, row in tqdm(blocks.iterrows(), total = blocks.shape[0]):
+        block_area = row["geometry"].area
+        # estimate a good number of neighbors to search for
+        k = int(max(5, min(block_area // patch_area, patches.shape[0] / 5)))
+        # verify if it intersects the k closest patches
+        centroid = np.array(row["geometry"].centroid.coords).reshape(1, 2)
+        idx_closest = tree.query(centroid, k = k)[1][0]
+        intersection_ratio = (patches.iloc[idx_closest].geometry.intersection(row.geometry).area / block_area).values
+
+        block_patches = ""
+        # for each of the closest patches
+        for idx, ratio in zip(idx_closest, intersection_ratio):
+            if ratio == 0:
+                continue
+            
+            # saves the filename and the ratio of intersection
+            filename = patches.iloc[idx].patche_filename
+            block_patches += f"{filename};{ratio:.4f} "
+        
+        relation.append(block_patches)
+    
+    return relation
+
+def compute_blocks_and_patches_relation():
+    blocks_df = gpd.read_file("../data/census_blocks.geojson")
+
+    cities_shp = os.listdir("../data/scenes_metadata/")
+    cities_shp = [s for s in cities_shp if s.endswith(".geojson")]
+    cities_shp = cities_shp
+    blocks_df["patches_relation"] = ""
+
+    # going to compare patches and blocks separated by city for better computing time
+    for city_shp in cities_shp:
+        city_df = gpd.read_file("../data/scenes_metadata/" + city_shp)
+        city_state = city_shp.replace("_last_scenes.geojson", "")
+        
+        # keep only blocks inside city
+        is_in_city = blocks_df.geometry.intersects(city_df.unary_union)
+        blocks_of_city = blocks_df[is_in_city]
+
+        # get patches of the city
+        patches_of_city = os.listdir("../data/output/patches/" + city_state)
+        patches_of_city = [s for s in patches_of_city if s.endswith(".geojson")]
+        patches_of_city = gpd.GeoDataFrame(pd.concat([gpd.read_file("../data/output/patches/" + city_state + "/" + s) for s in patches_of_city]))
+
+        # run function that identify the relation between them
+        relation = get_patches_inside_blocks(patches_of_city, blocks_of_city)
+        
+        blocks_df.loc[is_in_city, "patches_relation"] = relation
+        blocks_df.to_file("../data/census_blocks_patches.geojson")
+    
+
 if __name__ == "__main__":
     census_df = request_census_data()
     blocks_df = get_blocks_df()
     blocks_df = blocks_df.merge(census_df, on=["state", "county", "tract", "block group"], how="left")
     blocks_df.to_file("../data/census_blocks.geojson")
-
+    compute_blocks_and_patches_relation()
 
