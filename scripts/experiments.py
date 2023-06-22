@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 
 from data import get_sample_patches_dataset, get_filenames, SmallPatchesDataset
-from models import AutoEncoder, SmallAutoEncoder, DEC
+from models import AutoEncoder, SmallAutoEncoder, DEC, DenoisingAutoEncoder
 from train import train_reconstruction, train_clustering
 from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
 
@@ -315,6 +315,53 @@ def experiment_clustering_fixed_k(k):
         dir=f"../models/DEC_resnet50_clusters_{k}/",
     )
 
+def denoising_varying_latent_dim():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    filenames = get_filenames(1000)
+    filenames_test = filenames[:96]
+    dataset = SmallPatchesDataset(filenames, resnet=False)
+    dataset_test = SmallPatchesDataset(filenames_test, resnet=False)
+    dl = DataLoader(dataset, batch_size=96)
+    dl_test = DataLoader(dataset_test, batch_size=96)
+
+    print(f"Dataset shape: {len(dataset)}")
+    print("Training AutoEncoder ...")
+    print("===================================")
+
+    for latent_dim in [10, 32, 64, 128, 256, 512]:
+        model = DenoisingAutoEncoder(
+            latent_dim=latent_dim,
+            layers_per_block=[3, 3, 3, 3, 3],
+        ).to(device)
+
+        print(
+            f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
+        )
+
+        loss = nn.MSELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+        losses_log, batches_log = train_reconstruction(
+            model,
+            dl,
+            loss,
+            optimizer,
+            device,
+            epochs=10,
+            test_loader=dl_test,
+            dir=f"../models/DAE_{latent_dim}/",
+        )
+        save_reconstruction_results(
+            "reconstruction",
+            losses_log,
+            batches_log,
+            dl,
+            model,
+            device,
+            dir=f"../models/DAE_{latent_dim}/",
+        )
+
+
 
 if __name__ == "__main__":
     np.random.seed(42)
@@ -322,4 +369,5 @@ if __name__ == "__main__":
     # big_experiment()
     # varying_clusters_experiment()
     # experiment_clustering_fixed_k(k=2)
-    varying_latent_dim()
+    #varying_latent_dim()
+    denoising_varying_latent_dim()
