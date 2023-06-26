@@ -1,5 +1,7 @@
 import paramiko
+import pandas as pd
 import geopandas as gpd
+import shapely
 import os
 import shutil
 from tqdm import tqdm
@@ -69,6 +71,43 @@ def separate_patches_by_city_state():
                 )
 
 
+def create_small_patches_geosjon():
+    city_folders = os.listdir("../data/output/patches")
+
+    def split_rectangle(rect):
+        x0, y0, x1, y1 = rect.bounds
+        x_mid = (x0 + x1) / 2
+        y_mid = (y0 + y1) / 2
+        return [
+            shapely.geometry.box(x0, y0, x_mid, y_mid),
+            shapely.geometry.box(x_mid, y0, x1, y_mid),
+            shapely.geometry.box(x0, y_mid, x_mid, y1),
+            shapely.geometry.box(x_mid, y_mid, x1, y1)
+        ]
+
+    def split_patches_df(row): 
+        new_geom = split_rectangle(row.geometry)
+        series = []
+        for j in range(4):
+            new_row = row.copy()
+            new_row["geometry"] = new_geom[j]
+            new_row["patche_filename"] = f"{row['patche_filename']} {j}"
+            series.append(new_row)
+        return pd.DataFrame(series)
+
+
+    for city_folder in tqdm(city_folders):
+        if not os.path.exists(f"../data/output/small_patches/{city_folder}"):
+            os.mkdir(f"../data/output/small_patches/{city_folder}")
+
+        patches_files = os.listdir(f"../data/output/patches/{city_folder}")
+        patches_files = [f for f in patches_files if f.endswith(".geojson")]
+        for patch_file in patches_files:
+            patch_df = gpd.read_file(f"../data/output/patches/{city_folder}/{patch_file}")
+            new_patch_df = gpd.GeoDataFrame(pd.concat(patch_df.apply(split_patches_df, axis = 1).tolist()))
+            new_patch_df.to_file(f"../data/output/small_patches/{city_folder}/{patch_file}")
+
+
 if __name__ == "__main__":
     # download_patches()
-    separate_patches_by_city_state()
+   create_small_patches_geosjon()
