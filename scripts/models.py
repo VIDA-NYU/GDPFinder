@@ -103,13 +103,11 @@ class AutoEncoder(nn.Module):
     AutoEncoder that uses a pretrained model as the encoder.
 
     Inputs:
-        latent_dim: int with the dimension of the latent space !!! (must be a multiple of 49) !!!
+        latent_dim: int with the dimension of the latent space
         encoder_arch: string with the name of the pretrained model
         encoder_lock_weights: bool to lock the weights of the pretrained model
-        decoder_latent_dim_channels: int with the number of channels of the latent space
         decoder_layers_per_block: list with the number of layers per block
-        decoder_enable_bn: bool to enable batch normalization
-
+        denoising : bool with autoencoder is denoising
     """
 
     def __init__(
@@ -118,16 +116,11 @@ class AutoEncoder(nn.Module):
         encoder_arch="vgg16",
         encoder_lock_weights=True,
         decoder_layers_per_block=[2, 2, 3, 3, 3],
+        denoising = False
     ):
         super(AutoEncoder, self).__init__()
-        # assert latent_dim % 49 == 0
+        self.denoising = denoising
         self.encoder = PetrainedEncoder(latent_dim, encoder_arch, encoder_lock_weights)
-        # self.decoder = Decoder(
-        #    latent_dim,
-        #    # decoder_latent_dim_channels,
-        #    decoder_layers_per_block,
-        #    decoder_enable_bn,
-        # )
 
         self.decoder = []
         self.decoder += [
@@ -138,9 +131,14 @@ class AutoEncoder(nn.Module):
             nn.Unflatten(dim=1, unflattened_size=(8, 7, 7)),
         ]
 
-        n_blocks = 5
-        blocks_in_channel = [8, 64, 128, 64, 8]
-        blocks_out_channel = [64, 128, 64, 8, 3]
+        if encoder_arch == "resnet50_small_patch":
+            n_blocks = 4
+            blocks_in_channel = [8, 32, 64, 8]
+            blocks_out_channel = [32, 64, 8,3]
+        else:
+            n_blocks = 5
+            blocks_in_channel = [8, 64, 128, 64, 8]
+            blocks_out_channel = [64, 128, 64, 8, 3]
         for b in range(n_blocks):
             self.decoder.append(
                 nn.ConvTranspose2d(
@@ -171,6 +169,8 @@ class AutoEncoder(nn.Module):
         self.decoder = nn.Sequential(*self.decoder)
 
     def forward(self, x):
+        if self.denoising:
+            x = x + torch.normal(0, 0.1, size = x.shape, device = x.device)
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
         return encoded, decoded
@@ -190,9 +190,8 @@ class PetrainedEncoder(nn.Module):
 
     def __init__(self, latent_dim, arch="vgg16", lock_weights=True):
         super(PetrainedEncoder, self).__init__()
-        assert arch in ["vgg16", "vgg19", "resnet50", "resnet152"]
+        assert arch in ["vgg16", "vgg19", "resnet50", "resnet50_small_patch", "resnet152"]
         self.latent_dim = latent_dim
-        # self.latent_channels = latent_dim // 49
         self.arch = arch
         self.lock_weights = lock_weights
         self.model = self._get_model()
@@ -202,7 +201,7 @@ class PetrainedEncoder(nn.Module):
             model = torchvision.models.vgg16(weights="DEFAULT")
         elif self.arch == "vgg19":
             model = torchvision.models.vgg19(weights="DEFAULT")
-        elif self.arch == "resnet50":
+        elif self.arch == "resnet50" or self.arch == "resnet50_small_patch":
             model = torchvision.models.resnet50(weights="DEFAULT")
         elif self.arch == "resnet152":
             model = torchvision.models.resnet152(weights="DEFAULT")
@@ -223,6 +222,21 @@ class PetrainedEncoder(nn.Module):
                 nn.ReLU(),
                 nn.Linear(256, self.latent_dim),
             ]
+        elif self.arch == "resnet50_small_patch":
+            model = [nn.Conv2d(3, 64, kernel_size = 7, stride = 1, padding = 3, bias = False)] + list(model.children())[1:-2]
+            model += [
+                nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(1, -1),
+                nn.Linear(32 * 3 * 3, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.latent_dim),
+            ]
+
         elif "resnet" in self.arch:
             model = list(model.children())[:-2]
             model += [
