@@ -18,7 +18,7 @@ def get_embeddings(loader, model, device):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            embedding = model(batch)[0]
+            embedding = model.encoder(batch)
             embeddings.append(embedding.cpu().detach().numpy())
     embeddings = np.concatenate(embeddings, axis=0)
     return embeddings

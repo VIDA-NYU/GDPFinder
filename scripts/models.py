@@ -171,9 +171,9 @@ class AutoEncoder(nn.Module):
     def forward(self, x):
         if self.denoising:
             x = x + torch.normal(0, 0.1, size = x.shape, device = x.device)
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        return encoded, decoded
+        out = self.encoder(x)
+        out = self.decoder(out)
+        return out
 
 
 class PetrainedEncoder(nn.Module):
@@ -594,6 +594,6 @@ class DenoisingAutoEncoder(nn.Module):
 
     def forward(self, x):
         x_noisy = x + torch.normal(0, 0.1, size = x.shape, device = x.device)
-        encoded = self.encoder(x_noisy)
-        decoded = self.decoder(encoded)
-        return encoded, decoded
+        out = self.encoder(x_noisy)
+        out = self.decoder(out)
+        return out

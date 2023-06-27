@@ -12,7 +12,7 @@ def train_reconstruction(
         iter_loss = 0
         for batch in tqdm(loader):
             batch = batch.to(device)
-            _, decoded = model(batch)
+            decoded = model(batch)
             rec_loss = loss(decoded, batch)
             optimizer.zero_grad()
             rec_loss.backward()
