@@ -16,7 +16,7 @@ def get_embeddings(loader, model, device):
     """
     embeddings = []
     with torch.no_grad():
-        for batch, _ in loader:
+        for batch in loader:
             batch = batch.to(device)
             embedding = model(batch)[0]
             embeddings.append(embedding.cpu().detach().numpy())
@@ -27,7 +27,7 @@ def get_embeddings(loader, model, device):
 def get_clusters(loader, model, device):
     clusters = []
     with torch.no_grad():
-        for batch, _ in loader:
+        for batch in loader:
             batch = batch.to(device)
             cluster = model(batch)
             clusters.append(cluster.cpu().detach().numpy())

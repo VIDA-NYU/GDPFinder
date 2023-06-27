@@ -10,7 +10,7 @@ def train_reconstruction(
     batches_log = []
     for i in range(epochs):
         iter_loss = 0
-        for batch, _ in tqdm(loader):
+        for batch in tqdm(loader):
             batch = batch.to(device)
             _, decoded = model(batch)
             rec_loss = loss(decoded, batch)
@@ -47,7 +47,7 @@ def train_clustering(model, loader, loss, optimizer, device, epochs=100, test_lo
 
     for i in range(epochs):
         iter_loss = 0
-        for batch, _ in tqdm(loader):
+        for batch in tqdm(loader):
             batch = batch.to(device)
             output = model(batch)
             target = target_distribution(output).detach()
