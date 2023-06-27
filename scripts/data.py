@@ -11,17 +11,11 @@ from handle_tif_images import separate_tif_into_patches
 
 
 class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames, resize=None, resnet=False):
+    def __init__(self, filenames, resize=None):
         self.filenames = filenames
         self.preprocess = [transforms.ToTensor()]
         if resize is not None:
             self.preprocess.append(transforms.Resize(resize))
-        if resnet:
-            self.preprocess.append(
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                )
-            )
         self.preprocess = transforms.Compose(self.preprocess)
 
     def __len__(self):
@@ -30,19 +24,14 @@ class PatchesDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img = Image.open(self.filenames[idx])
         img = self.preprocess(img)
-        return img, self.filenames[idx]
-
+        return img
 
 class SmallPatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames, resnet=False):
-        self.filenames = filenames
+    def __init__(self, filenames, resize = None):
+        self.filenames, self.idx = list(zip(*[(f[:-2], int(f[-1])) for f in filenames]))
         self.preprocess = [transforms.ToTensor()]
-        if resnet:
-            self.preprocess.append(
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                )
-            )
+        if resize is not None:
+            self.preprocess.append(transforms.Resize(resize))
         self.preprocess = transforms.Compose(self.preprocess)
 
     def __len__(self):
@@ -50,14 +39,13 @@ class SmallPatchesDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, i):
         filename = self.filenames[i]
-        filename, j = filename.split(" ")
-        j = int(j)
+        j = self.idx[i]
         row = j // 2
         column = j % 2
         img = Image.open(filename)
         img = img.crop((column * 112, row * 112, (column + 1) * 112, (row + 1) * 112))
         img = self.preprocess(img)
-        return img, self.filenames[i]
+        return img
 
 
 def save_samples_patch(output_dir="patches", size=224):
