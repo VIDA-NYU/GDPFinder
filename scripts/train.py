@@ -24,18 +24,18 @@ def train_reconstruction(
         if verbose:
             print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.8f}")
 
-        if i % 4 == 0:
-            model.eval()
-            save_reconstruction_results(
-                "reconstruction",
-                losses_log,
-                batches_log,
-                test_loader,
-                model,
-                device,
-                dir=dir,
-            )
-            model.train()
+       
+        model.eval()
+        save_reconstruction_results(
+            "reconstruction",
+            losses_log,
+            batches_log,
+            test_loader,
+            model,
+            device,
+            dir=dir,
+        )
+        model.train()
             
 
     return losses_log, batches_log
