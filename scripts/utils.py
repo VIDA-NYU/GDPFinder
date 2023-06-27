@@ -83,22 +83,15 @@ def plot_loss_curve(losses_log, dir=None):
 
 
 def plot_reconstruction(model, dl, device, n_samples=5, dir=None):
-    inv_normalize = transforms.Normalize(
-        mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
-        std=[1/0.229, 1/0.224, 1/0.225]
-    )
-
     imgs = []
     reconstructions = []
     k = 0
     for batch, _ in dl:
         for j in range(batch.shape[0]):
             img = batch[j].unsqueeze(0)
-            #imgs.append(inv_normalize(img).cpu().detach().numpy())
             imgs.append(img.cpu().detach().numpy())
             img = img.to(device)
             reconstruction = model(img)[1]
-            #reconstruction = inv_normalize(reconstruction)
             reconstructions.append(reconstruction.cpu().detach().numpy())
             k += 1
             if k == n_samples:
