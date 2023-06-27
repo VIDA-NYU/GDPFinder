@@ -86,12 +86,12 @@ def plot_reconstruction(model, dl, device, n_samples=5, dir=None):
     imgs = []
     reconstructions = []
     k = 0
-    for batch, _ in dl:
+    for batch in dl:
         for j in range(batch.shape[0]):
             img = batch[j].unsqueeze(0)
             imgs.append(img.cpu().detach().numpy())
             img = img.to(device)
-            reconstruction = model(img)[1]
+            reconstruction = model(img)
             reconstructions.append(reconstruction.cpu().detach().numpy())
             k += 1
             if k == n_samples:
