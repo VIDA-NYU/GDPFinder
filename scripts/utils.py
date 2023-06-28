@@ -63,7 +63,7 @@ def plot_embedding_proj(embeddings, labels=None, dir=None):
         plt.show()
 
 
-def plot_loss_curve(losses_log, dir=None):
+def plot_loss_curve(train_losses_log, test_losses_log = None, dir=None):
     """
     Plot the loss curve.
 
@@ -71,10 +71,13 @@ def plot_loss_curve(losses_log, dir=None):
         loss - list or numpy array (n_epochs, )
         dir - str, directory to save the plot
     """
-    plt.plot(losses_log)
+    plt.plot(train_losses_log, label = "Training")
+    if test_losses_log is not None:
+        plt.plot(test_losses_log, label = "Test")
+        plt.legend()
     plt.ylabel("Iter loss")
     plt.xlabel("Epoch")
-    plt.title("Training loss")
+    plt.title("Loss")
     if dir is not None:
         plt.savefig(dir)
         plt.close()
@@ -82,35 +85,28 @@ def plot_loss_curve(losses_log, dir=None):
         plt.show()
 
 
-def plot_reconstruction(model, dl, device, n_samples=5, dir=None):
-    imgs = []
+def plot_reconstruction(image, reconstruction, n_samples=5, dir=None):
+    images = []
     reconstructions = []
-    k = 0
-    for batch in dl:
-        for j in range(batch.shape[0]):
-            img = batch[j].unsqueeze(0)
-            imgs.append(img.cpu().detach().numpy())
-            img = img.to(device)
-            reconstruction = model(img)
-            reconstructions.append(reconstruction.cpu().detach().numpy())
-            k += 1
-            if k == n_samples:
-                break
-        if k == n_samples:
-            break
-
-    imgs = np.concatenate(imgs, axis=0)
+    idx = np.random.choice(image.shape[0], n_samples, replace = False)
+    for i in idx:
+        images.append(image[idx].cpu().detach().numpy())
+        reconstructions.append(reconstruction[idx].cpu().detach().numpy())
+   
+    images = np.concatenate(images, axis=0)
     reconstructions = np.concatenate(reconstructions, axis=0)
 
     fig, axs = plt.subplots(nrows=n_samples, ncols=2, figsize=(4, 15))
     for i in range(n_samples):
-        img_ = imgs[i].transpose(1, 2, 0)
+        img_ = images[i].transpose(1, 2, 0)
         img_ = np.clip(img_, 0, 1)
         rec_ = reconstructions[i].transpose(1, 2, 0)
         rec_ = np.clip(rec_, 0, 1)
 
         axs[i, 0].imshow(img_)
         axs[i, 1].imshow(rec_)
+        axs[i, 0].set_axis_off()
+        axs[i, 1].set_axis_off()
     if dir is not None:
         plt.savefig(dir)
         plt.close()
@@ -119,15 +115,14 @@ def plot_reconstruction(model, dl, device, n_samples=5, dir=None):
 
 
 def save_reconstruction_results(
-    mode, losses_log, batches_log, dl, model, device, dir=None
+    model, train_losses_log, train_batch_losses_log, test_losses_log, image, reconstruction, dir=None
 ):
     # verify if the directory exists
     if dir is not None and not os.path.exists(dir):
         os.mkdir(dir)
 
-    plot_loss_curve(losses_log, dir=dir + "loss_curve.png")
-    plot_loss_curve(batches_log, dir=dir + "batch_loss_curve.png")
+    plot_loss_curve(train_losses_log, test_losses_log, dir=dir + "loss_curve.png")
+    plot_loss_curve(train_batch_losses_log, dir=dir + "batch_loss_curve.png")
     torch.save(model.state_dict(), dir + "model.pt")
-    if mode == "reconstruction":
-        plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
+    plot_reconstruction(image, reconstruction, dir=dir + "reconstruction.png")
  

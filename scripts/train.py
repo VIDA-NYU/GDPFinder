@@ -38,19 +38,19 @@ def train_reconstruction(
                 iter_loss += rec_loss.item() 
                 n += batch.shape[0]
             test_losses_log.append(iter_loss / n)
-        save_reconstruction_results(
-            "reconstruction",
-            losses_log,
-            batches_log,
-            test_loader,
-            model,
-            device,
-            dir=dir,
-        )
-        model.train()
-            
 
-    return losses_log, batches_log
+        save_reconstruction_results(
+            model, 
+            train_losses_log, 
+            train_batch_losses_log, 
+            test_losses_log, 
+            batch, 
+            decoded, 
+            dir=dir
+        )
+
+        model.train()
+
 
 
 def train_clustering(model, loader, loss, optimizer, device, epochs=100, test_loader = None, dir = None, verbose=True):
