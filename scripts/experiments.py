@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
+from sklearn.model_selection import train_test_split
 
-from data import get_sample_patches_dataset, get_filenames, SmallPatchesDataset
+from data import get_sample_patches_dataset, get_filenames, get_filenames_small_patches, SmallPatchesDataset
 from models import AutoEncoder, SmallAutoEncoder, DEC, DenoisingAutoEncoder
 from train import train_reconstruction, train_clustering
 from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
@@ -250,6 +251,48 @@ def varying_latent_dim():
         )
 
 
+def varying_latent_dim_small():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    filenames_train = get_filenames_small_patches(1000)
+    filenames_train, filenames_test = train_test_split(filenames_train, test_size = 0.1, shuffle = True, random_state=0)
+    dataset_train = SmallPatchesDataset(filenames_train)
+    dataset_test = SmallPatchesDataset(filenames_test)
+    dl_train = DataLoader(dataset_train, batch_size=96)
+    dl_test = DataLoader(dataset_test, batch_size=192)
+
+    print(f"Train samples: {len(dataset_train)} \t Test samples: {len(dataset_test)}")
+    print("Training AutoEncoder ...")
+    print("===========================================================")
+
+    for latent_dim in [32, 64, 128, 256, 512]:
+        model = AutoEncoder(
+            latent_dim=latent_dim,
+            encoder_arch="resnet50_small_patch",
+            encoder_lock_weights=False,
+            decoder_layers_per_block=[3, 3, 3, 3, 3],
+            denoising = True
+        ).to(device)
+        n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        print(
+            f"Nº parameters: {n_parameters/1000000:.2f}M"
+        )
+
+        loss = nn.MSELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+        train_reconstruction(
+            model,
+            dl_train,
+            dl_test,
+            loss,
+            optimizer,
+            device,
+            epochs=10,
+            test_loader=dl_test,
+            dir=f"../models/AE_resnet50_small_{latent_dim}/",
+        )
+
+
 def experiment_clustering_fixed_k(k):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filenames_train = get_filenames(1000)
@@ -370,4 +413,5 @@ if __name__ == "__main__":
     # varying_clusters_experiment()
     # experiment_clustering_fixed_k(k=2)
     #varying_latent_dim()
-    denoising_varying_latent_dim()
+    # denoising_varying_latent_dim()
+    varying_latent_dim_small()
