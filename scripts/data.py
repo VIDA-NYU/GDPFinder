@@ -26,8 +26,9 @@ class PatchesDataset(torch.utils.data.Dataset):
         img = self.preprocess(img)
         return img
 
+
 class SmallPatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames, resize = None):
+    def __init__(self, filenames, resize=None):
         self.filenames, self.idx = list(zip(*[(f[:-2], int(f[-1])) for f in filenames]))
         self.preprocess = [transforms.ToTensor()]
         if resize is not None:
@@ -110,19 +111,15 @@ def get_filenames(n):
 
 
 def get_filenames_small_patches(n):
-    cities_folders = os.listdir("../data/output/small_patches")
+    cities_folders = os.listdir("../data/output/patches")
     filenames = []
-    for city_folder in tqdm(cities_folders):
-        patches_files = os.listdir("../data/output/small_patches/" + city_folder)
-        patches_df = pd.concat(
-            [
-                gpd.read_file(f"../data/output/small_patches/{city_folder}/{p}")
-                for p in patches_files
-            ]
-        )
-        patches_files = (
-            f"../data/output/patches/{city_folder}/" + patches_df.patche_filename
-        )
+    for city_folder in cities_folders:
+        patches_files = os.listdir("../data/output/patches/" + city_folder)
+        patches_files = [
+            f"../data/output/patches/{city_folder}/{p}"
+            for p in patches_files
+            if p.endswith(".png")
+        ]
         if len(patches_files) > n:
             patches_files = np.random.choice(
                 patches_files, size=n, replace=False
@@ -130,6 +127,8 @@ def get_filenames_small_patches(n):
         filenames += patches_files
 
     np.random.shuffle(filenames)
+    filenames = np.repeat(filenames, 4)
+    filenames = np.array([filenames[i] + f" {i % 4}" for i in range(len(filenames))])
     return filenames
 
 
