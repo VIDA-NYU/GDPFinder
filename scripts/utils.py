@@ -126,3 +126,14 @@ def save_reconstruction_results(
     torch.save(model.state_dict(), dir + "model.pt")
     plot_reconstruction(image, reconstruction, dir=dir + "reconstruction.png")
  
+
+def save_clustering_results(
+        model, train_losses_log, train_batch_losses_log, test_losses_log, dir=None
+):
+    # verify if the directory exists
+    if dir is not None and not os.path.exists(dir):
+        os.mkdir(dir)
+
+    plot_loss_curve(train_losses_log, test_losses_log, dir=dir + "loss_curve.png")
+    plot_loss_curve(train_batch_losses_log, dir=dir + "batch_loss_curve.png")
+    torch.save(model.state_dict(), dir + "model.pt")
