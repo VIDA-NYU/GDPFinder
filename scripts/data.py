@@ -132,6 +132,54 @@ def get_filenames_small_patches(n):
     return filenames
 
 
+def get_filenames_center_blocks(intersection_threshold=0, patches_count_max=10):
+    blocks_df = gpd.read_file("../data/census_blocks_patches_v2.geojson")
+    # cleaning blocks with missing data
+    blocks_df = blocks_df[blocks_df.mhi > 0]
+    blocks_df = blocks_df.dropna()
+    blocks_df = blocks_df[blocks_df.patches_relation.apply(len) > 0]
+
+    def clean_patches_relation(s):
+        s = s.split("\n")
+        s = dict([x.split(":") for x in s])
+        filenames = []
+        data = []
+        for key, value in s.items():
+            value = value.split(" ")
+            idx = np.array([float(v) for v in value[0].split(",")])
+            ratio = np.array([float(v) for v in value[1].split(",")])
+            idx = idx[ratio > intersection_threshold]
+            ratio = ratio[ratio > intersection_threshold]
+            for i in range(len(idx)):
+                data.append([idx[i], ratio[i]])
+                filenames.append(key)
+        data = np.array(data)
+        if len(filenames) > patches_count_max:
+            selected = np.random.choice(
+                len(filenames),
+                size=patches_count_max,
+                replace=False,
+                p=data[:, 1] / data[:, 1].sum(),
+            )
+            data = data[selected, :]
+            filenames = [filenames[i] for i in selected]
+        return [filenames, data]
+
+    blocks_df["clean_patches_relation"] = blocks_df.patches_relation.apply(
+        clean_patches_relation
+    )
+    blocks_df["n_patches"] = blocks_df["clean_patches_relation"].apply(
+        lambda x: x[1].shape[0]
+    )
+    blocks_df = blocks_df[blocks_df.n_patches > 0]
+
+    filenames = blocks_df.clean_patches_relation.apply(
+        lambda x: [x[0][i] + f" {int(x[1][i, 0])}" for i in range(len(x[0]))]
+    ).sum()
+    np.random.shuffle(filenames)
+    return filenames
+
+
 if __name__ == "__main__":
     dataset = get_sample_patches_dataset()
     print(len(dataset))
