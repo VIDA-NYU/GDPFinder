@@ -100,14 +100,15 @@ def train_clustering(
             iter_loss = 0
             for batch in tqdm(dl_test):
                 batch = batch.to(device)
-                decoded = model(batch)
-                rec_loss = loss(decoded, batch)
-                iter_loss += rec_loss.item()
+                output = model(batch)
+                target = target_distribution(output).detach()
+                cluster_loss = loss(output.log(), target) / output.shape[0]
+                iter_loss += cluster_loss.item()
                 n += batch.shape[0]
             test_losses_log.append(iter_loss / n)
 
             save_clustering_results(
-                "cluster",
+                model,
                 train_losses_log,
                 train_batch_losses_log,
                 test_losses_log,
