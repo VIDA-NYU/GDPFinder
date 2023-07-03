@@ -440,6 +440,9 @@ class DEC(nn.Module):
             torch.tensor, shape (batch_size, n_clusters)
         """
         return self.assignment(self.encoder(batch))
+    
+    def centroids_distance(self, batch):
+        return self.assignment.centroids_distance(self.encoder(batch))
 
 
 class ClusterAssignment(nn.Module):
@@ -491,6 +494,9 @@ class ClusterAssignment(nn.Module):
         power = float(self.alpha + 1) / 2
         numerator = numerator**power
         return numerator / torch.sum(numerator, dim=1, keepdim=True)
+    
+    def centroids_distance(self, batch):
+        return torch.sum((batch.unsqueeze(1) - self.cluster_centers) ** 2, 2)
 
 
 def target_distribution(batch):
