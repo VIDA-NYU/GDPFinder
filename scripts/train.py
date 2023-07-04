@@ -115,3 +115,59 @@ def train_clustering(
                 dir=dir,
             )
         model.train()
+
+def train_reconstruction_feature_extraction(
+    model,
+    dl_train,
+    dl_test,
+    loss,
+    optimizer,
+    device,
+    epochs=100,
+    dir=None,
+    verbose=True,
+):
+    train_losses_log = []
+    train_batch_losses_log = []
+    test_losses_log = []
+    for i in range(epochs):
+        iter_loss = 0
+        n = 0
+        for batch in tqdm(dl_train):
+            batch = batch.to(device)
+            feature, decoded = model(batch)
+            rec_loss = loss(decoded, feature)
+            optimizer.zero_grad()
+            rec_loss.backward()
+            optimizer.step()
+            iter_loss += rec_loss.item()
+            n += batch.shape[0]
+            train_batch_losses_log.append(rec_loss.item())
+        train_losses_log.append(iter_loss / n)
+
+        if verbose:
+            print(f"Epoch {i+1}/{epochs} - Loss: {iter_loss:.8f}")
+
+        with torch.no_grad():
+            model.eval()
+            iter_loss = 0
+            n = 0
+            for batch in tqdm(dl_test):
+                batch = batch.to(device)
+                decoded = model(batch)
+                rec_loss = loss(decoded, batch)
+                iter_loss += rec_loss.item()
+                n += batch.shape[0]
+            test_losses_log.append(iter_loss / n)
+
+        save_reconstruction_results(
+            model,
+            train_losses_log,
+            train_batch_losses_log,
+            test_losses_log,
+            batch,
+            decoded,
+            dir=dir,
+        )
+
+        model.train()
