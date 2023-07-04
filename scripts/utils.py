@@ -124,7 +124,8 @@ def save_reconstruction_results(
     plot_loss_curve(train_losses_log, test_losses_log, dir=dir + "loss_curve.png")
     plot_loss_curve(train_batch_losses_log, dir=dir + "batch_loss_curve.png")
     torch.save(model.state_dict(), dir + "model.pt")
-    plot_reconstruction(image, reconstruction, dir=dir + "reconstruction.png")
+    if image.ndim == 4:
+        plot_reconstruction(image, reconstruction, dir=dir + "reconstruction.png")
  
 
 def save_clustering_results(
