@@ -289,7 +289,6 @@ def varying_latent_dim_small():
             optimizer,
             device,
             epochs=10,
-            test_loader=dl_test,
             dir=f"../models/AE_resnet50_small_{latent_dim}/",
         )
 
@@ -480,6 +479,6 @@ if __name__ == "__main__":
     # experiment_clustering_fixed_k(k=2)
     #varying_latent_dim()
     # denoising_varying_latent_dim()
-    # varying_latent_dim_small()
+    varying_latent_dim_small()
     # varying_clusters_small()
-    varying_clusters_small(512)
+    # varying_clusters_small(512)
