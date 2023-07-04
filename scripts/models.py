@@ -116,61 +116,16 @@ class AutoEncoder(nn.Module):
         encoder_arch="vgg16",
         encoder_lock_weights=True,
         decoder_layers_per_block=[2, 2, 3, 3, 3],
-        denoising = False
+        denoising=False,
     ):
         super(AutoEncoder, self).__init__()
         self.denoising = denoising
         self.encoder = PetrainedEncoder(latent_dim, encoder_arch, encoder_lock_weights)
-
-        self.decoder = []
-        self.decoder += [
-            nn.Linear(latent_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, 7 * 7 * 8),
-            nn.ReLU(),
-            nn.Unflatten(dim=1, unflattened_size=(8, 7, 7)),
-        ]
-
-        if encoder_arch == "resnet50_small_patch":
-            n_blocks = 4
-            blocks_in_channel = [8, 32, 64, 8]
-            blocks_out_channel = [32, 64, 8,3]
-        else:
-            n_blocks = 5
-            blocks_in_channel = [8, 64, 128, 64, 8]
-            blocks_out_channel = [64, 128, 64, 8, 3]
-        for b in range(n_blocks):
-            self.decoder.append(
-                nn.ConvTranspose2d(
-                    blocks_in_channel[b],
-                    blocks_out_channel[b],
-                    kernel_size=3,
-                    stride=2,
-                    padding=1,
-                    output_padding=1,  # if b == 0 else 0,
-                )
-            )
-            self.decoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
-            self.decoder.append(nn.ReLU(True))
-            for layer in range(decoder_layers_per_block[b] - 1):
-                self.decoder.append(
-                    nn.Conv2d(
-                        blocks_out_channel[b],
-                        blocks_out_channel[b],
-                        kernel_size=3,
-                        stride=1,
-                        padding=1,
-                    )
-                )
-                self.decoder.append(nn.ReLU(True))
-
-        self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
-        self.decoder.append(nn.Sigmoid())
-        self.decoder = nn.Sequential(*self.decoder)
+        self.decoder = Decoder(latent_dim, decoder_layers_per_block, encoder_arch)
 
     def forward(self, x):
         if self.denoising:
-            x = x + torch.normal(0, 0.1, size = x.shape, device = x.device)
+            x = x + torch.normal(0, 0.1, size=x.shape, device=x.device)
         out = self.encoder(x)
         out = self.decoder(out)
         return out
@@ -190,7 +145,13 @@ class PetrainedEncoder(nn.Module):
 
     def __init__(self, latent_dim, arch="vgg16", lock_weights=True):
         super(PetrainedEncoder, self).__init__()
-        assert arch in ["vgg16", "vgg19", "resnet50", "resnet50_small_patch", "resnet152"]
+        assert arch in [
+            "vgg16",
+            "vgg19",
+            "resnet50",
+            "resnet50_small_patch",
+            "resnet152",
+        ]
         self.latent_dim = latent_dim
         self.arch = arch
         self.lock_weights = lock_weights
@@ -223,7 +184,9 @@ class PetrainedEncoder(nn.Module):
                 nn.Linear(256, self.latent_dim),
             ]
         elif self.arch == "resnet50_small_patch":
-            model = [nn.Conv2d(3, 64, kernel_size = 7, stride = 1, padding = 3, bias = False)] + list(model.children())[1:-2]
+            model = [
+                nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3, bias=False)
+            ] + list(model.children())[1:-2]
             model += [
                 nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
@@ -277,132 +240,60 @@ class Decoder(nn.Module):
         self,
         latent_dim,
         layers_per_block=[2, 2, 3, 3, 3],
-        enable_bn=False,
+        encoder_arch="resnet50",
     ):
         super(Decoder, self).__init__()
         # assert latent_dim % 49 == 0
         assert len(layers_per_block) == 5
         self.latent_dim = latent_dim
-
-        self.fc = nn.Sequential(
+        self.decoder = []
+        self.decoder += [
             nn.Linear(latent_dim, 256),
             nn.ReLU(),
             nn.Linear(256, 7 * 7 * 8),
             nn.ReLU(),
-        )
-        self.conv1 = DecoderBlock(
-            input_dim=8,
-            output_dim=128,
-            hidden_dim=64,
-            layers=layers_per_block[0],
-            enable_bn=enable_bn,
-        )
-        self.conv2 = DecoderBlock(
-            input_dim=128,
-            output_dim=256,
-            hidden_dim=256,
-            layers=layers_per_block[1],
-            enable_bn=enable_bn,
-        )
-        self.conv3 = DecoderBlock(
-            input_dim=256,
-            output_dim=128,
-            hidden_dim=128,
-            layers=layers_per_block[2],
-            enable_bn=enable_bn,
-        )
-        self.conv4 = DecoderBlock(
-            input_dim=128,
-            output_dim=64,
-            hidden_dim=128,
-            layers=layers_per_block[3],
-            enable_bn=enable_bn,
-        )
-        self.conv5 = DecoderBlock(
-            input_dim=64,
-            output_dim=3,
-            hidden_dim=64,
-            layers=layers_per_block[4],
-            enable_bn=enable_bn,
-        )
-        self.gate = nn.Sigmoid()
+            nn.Unflatten(dim=1, unflattened_size=(8, 7, 7)),
+        ]
 
-    def forward(self, x):
-        x = self.fc(x)
-        x = x.view(-1, 8, 7, 7)
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
-        x = self.gate(x)
-        return x
-
-
-class DecoderBlock(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, layers, enable_bn=False):
-        super(DecoderBlock, self).__init__()
-        upsample = nn.ConvTranspose2d(
-            in_channels=input_dim, out_channels=hidden_dim, kernel_size=2, stride=2
-        )
-        self.add_module("0 UpSampling", upsample)
-
-        if layers == 1:
-            layer = DecoderLayer(
-                input_dim=input_dim, output_dim=output_dim, enable_bn=enable_bn
-            )
-            self.add_module("1 DecoderLayer", layer)
+        if encoder_arch == "resnet50_small_patch":
+            n_blocks = 4
+            blocks_in_channel = [8, 32, 64, 8]
+            blocks_out_channel = [32, 64, 8, 3]
         else:
-            for i in range(layers):
-                # if i == 0:
-                #    layer = DecoderLayer(
-                #        input_dim=input_dim, output_dim=hidden_dim, enable_bn=enable_bn
-                #    )
-                if i == (layers - 1):
-                    layer = DecoderLayer(
-                        input_dim=hidden_dim, output_dim=output_dim, enable_bn=enable_bn
+            n_blocks = 5
+            blocks_in_channel = [8, 64, 128, 64, 8]
+            blocks_out_channel = [64, 128, 64, 8, 3]
+        for b in range(n_blocks):
+            self.decoder.append(
+                nn.ConvTranspose2d(
+                    blocks_in_channel[b],
+                    blocks_out_channel[b],
+                    kernel_size=3,
+                    stride=2,
+                    padding=1,
+                    output_padding=1,  # if b == 0 else 0,
+                )
+            )
+            self.decoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
+            self.decoder.append(nn.ReLU(True))
+            for layer in range(layers_per_block[b] - 1):
+                self.decoder.append(
+                    nn.Conv2d(
+                        blocks_out_channel[b],
+                        blocks_out_channel[b],
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
                     )
-                else:
-                    layer = DecoderLayer(
-                        input_dim=hidden_dim, output_dim=hidden_dim, enable_bn=enable_bn
-                    )
-                self.add_module("%d DecoderLayer" % (i + 1), layer)
+                )
+                self.decoder.append(nn.ReLU(True))
+
+        self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
+        self.decoder.append(nn.Sigmoid())
+        self.decoder = nn.Sequential(*self.decoder)
 
     def forward(self, x):
-        for name, layer in self.named_children():
-            x = layer(x)
-        return x
-
-
-class DecoderLayer(nn.Module):
-    def __init__(self, input_dim, output_dim, enable_bn):
-        super(DecoderLayer, self).__init__()
-        if enable_bn:
-            self.layer = nn.Sequential(
-                nn.BatchNorm2d(input_dim),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(
-                    in_channels=input_dim,
-                    out_channels=output_dim,
-                    kernel_size=3,
-                    stride=1,
-                    padding=1,
-                ),
-            )
-        else:
-            self.layer = nn.Sequential(
-                nn.ReLU(inplace=True),
-                nn.Conv2d(
-                    in_channels=input_dim,
-                    out_channels=output_dim,
-                    kernel_size=3,
-                    stride=1,
-                    padding=1,
-                ),
-            )
-
-    def forward(self, x):
-        return self.layer(x)
+        return self.decoder(x)
 
 
 class DEC(nn.Module):
@@ -440,7 +331,7 @@ class DEC(nn.Module):
             torch.tensor, shape (batch_size, n_clusters)
         """
         return self.assignment(self.encoder(batch))
-    
+
     def centroids_distance(self, batch):
         return self.assignment.centroids_distance(self.encoder(batch))
 
@@ -494,7 +385,7 @@ class ClusterAssignment(nn.Module):
         power = float(self.alpha + 1) / 2
         numerator = numerator**power
         return numerator / torch.sum(numerator, dim=1, keepdim=True)
-    
+
     def centroids_distance(self, batch):
         return torch.sum((batch.unsqueeze(1) - self.cluster_centers) ** 2, 2)
 
@@ -599,7 +490,7 @@ class DenoisingAutoEncoder(nn.Module):
         self.decoder = nn.Sequential(*self.decoder)
 
     def forward(self, x):
-        x_noisy = x + torch.normal(0, 0.1, size = x.shape, device = x.device)
+        x_noisy = x + torch.normal(0, 0.1, size=x.shape, device=x.device)
         out = self.encoder(x_noisy)
         out = self.decoder(out)
         return out
