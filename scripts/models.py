@@ -494,3 +494,37 @@ class DenoisingAutoEncoder(nn.Module):
         out = self.encoder(x_noisy)
         out = self.decoder(out)
         return out
+
+class AutoEncoderResnetExtractor(nn.Module):
+    def __init__(self, latent_dim):
+        super(AutoEncoderResnetExtractor, self).__init__()
+        self.latent_dim = latent_dim
+        self.hidden_dim = int(latent_dim * 2)
+        self.feature_extractor = torchvision.models.resnet50(weights = "DEFAULT")
+        self.feature_extractor.fc = torch.nn.Identity()
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
+        
+        self.fc = nn.Sequential(
+            nn.Linear(2048, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, self.latent_dim)
+        )
+        self.encoder = nn.Sequential(
+            self.feature_extractor,
+            self.fc,
+        )
+
+        self.decoder = [
+            nn.Linear(self.latent_dim, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, 2048),
+            nn.Sigmoid(),
+        ]
+        self.decoder = nn.Sequential(*self.decoder)
+
+    def forward(self, x):
+        features = self.feature_extractor(x)
+        x = self.fc(features)
+        x = self.decoder(x)
+        return features, x
