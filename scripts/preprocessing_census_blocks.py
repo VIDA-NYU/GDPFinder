@@ -8,111 +8,109 @@ from tqdm import tqdm
 import os
 
 def get_locations_info():
-    locations_info = """
-    eattle, wa; county code(s): 033; year: 2019
-    new_york, ny; county code(s): 005,047,061,081,085; year: 2021
-    los_angeles, ca; county code(s): 037; year: 2020
-    chicago, il; county code(s): 043,031; year: 2021
-    oakland, ca; county code(s): 001; year: 2020
-    dallas, tx; county code(s): 121,397,113,257,085; year: 2020
-    washington, dc; county code(s): 001; year: 2021
-    houston, tx; county code(s): 157,339,201,473; year: 2020
-    boston, ma; county code(s): 025; year: 2021
-    philadelphia, pa; county code(s): 101; year: 2019
-    atlanta, ga; county code(s): 089,121; year: 2019
-    san_jose, ca; county code(s): 085; year: 2020
-    !!!!! NOTICE: skipping miami, fl due to year !!!!!
-    phoenix, az; county code(s): 013; year: 2021
-    minneapolis, mn; county code(s): 053; year: 2021
-    detroit, mi; county code(s): 163; year: 2020
-    san_diego, ca; county code(s): 073; year: 2020
-    aurora, co; county code(s): 001,005,035; year: 2019
-    baltimore, md; county code(s): 510; year: 2021
-    riverside, ca; county code(s): 065; year: 2020
-    charlotte, nc; county code(s): 119; year: 2020
-    austin, tx; county code(s): 491,209,453,021; year: 2020
-    portland, or; county code(s): 051,005,067; year: 2020
-    tampa, fl; county code(s): 057; year: 2021
-    st._louis, mo; county code(s): 510; year: 2020
-    cincinnati, oh; county code(s): 061; year: 2021
-    pittsburgh, pa; county code(s): 003; year: 2019
-    orlando, fl; county code(s): 095; year: 2021
-    nashville, tn; county code(s): 037; year: 2021
-    indianapolis, in; county code(s): 097; year: 2020
-    sacramento, ca; county code(s): 067; year: 2020
-    kansas_city, mo; county code(s): 037,047,165,095; year: 2020
-    columbus, oh; county code(s): 049,045,041; year: 2021
-    san_antonio, tx; county code(s): 029,325,091; year: 2020
-    cleveland, oh; county code(s): 035; year: 2021
-    las_vegas, nv; county code(s): 003; year: 2019
-    salt_lake_city, ut; county code(s): 035; year: 2021
-    milwaukee, wi; county code(s): 131,079,133; year: 2020
-    raleigh, nc; county code(s): 063,183; year: 2020
-    durham, nc; county code(s): 135,063,183; year: 2020
-    hartford, ct; county code(s): 110; year: 2021
-    !!!!! NOTICE: error for hartford, ct: Expecting value: line 1 column 1 (char 0) !!!!!
-    virginia_beach, va; county code(s): 810; year: 2021
-    jacksonville, fl; county code(s): 031,089; year: 2021
-    richmond, va; county code(s): 760; year: 2021
-    warwick, ri; county code(s): 003; year: 2021
-    oklahoma_city, ok; county code(s): 125,027,109,017; year: 2021
-    stamford, ct; county code(s): 190; year: 2021
-    !!!!! NOTICE: error for stamford, ct: Expecting value: line 1 column 1 (char 0) !!!!!
-    memphis, tn; county code(s): 157; year: 2021
-    new_orleans, la; county code(s): 071; year: 2021
-    buffalo, ny; county code(s): 029; year: 2021
-    omaha, ne; county code(s): 055; year: 2020
-    albany, ny; county code(s): 001; year: 2021
-    birmingham, al; county code(s): 073,117; year: 2021
-    rochester, ny; county code(s): 055; year: 2021
-    grand_rapids, mi; county code(s): 081; year: 2020
-    tulsa, ok; county code(s): 131,143,145,113; year: 2021
-    des_moines, ia; county code(s): 153,181; year: 2021
-    baton_rouge, la; county code(s): 033; year: 2021
-    thousand_oaks, ca; county code(s): 111; year: 2020
-    madison, wi; county code(s): 025; year: 2020
-    new_haven, ct; county code(s): 170; year: 2021
-    !!!!! NOTICE: error for new_haven, ct: Expecting value: line 1 column 1 (char 0) !!!!!
-    bakersfield, ca; county code(s): 029; year: 2020
-    worcester, ma; county code(s): 027; year: 2021
-    knoxville, tn; county code(s): 093; year: 2021
-    bethlehem, pa; county code(s): 077,095; year: 2019
-    fresno, ca; county code(s): 019; year: 2020
-    charleston, sc; county code(s): 015,019; year: 2021
-    tucson, az; county code(s): 019; year: 2021
-    dayton, oh; county code(s): 057,113; year: 2021
-    albuquerque, nm; county code(s): 001; year: 2020
-    columbia, sc; county code(s): 079,063; year: 2021
-    midland, tx; county code(s): 329,317; year: 2020
-    syracuse, ny; county code(s): 067; year: 2021
-    greensboro, nc; county code(s): 081; year: 2020
-    colorado_springs, co; county code(s): 041; year: 2019
-    boise_city, id; county code(s): 001; year: 2021
-    trenton, nj; county code(s): 021; year: 2019
-    little_rock, ar; county code(s): 119; year: 2021
-    toledo, oh; county code(s): 095; year: 2021
-    wichita, ks; county code(s): 173; year: 2021
-    akron, oh; county code(s): 153; year: 2021
-    portland, me; county code(s): 005; year: 2021
-    cape_coral, fl; county code(s): 071; year: 2021
-    provo, ut; county code(s): 049; year: 2021
-    el_paso, tx; county code(s): 141; year: 2020
-    springfield, ma; county code(s): 013; year: 2021
-    stockton, ca; county code(s): 077; year: 2020
-    ogden, ut; county code(s): 057; year: 2021
-    boulder, co; county code(s): 013; year: 2019
-    huntsville, al; county code(s): 103,089,083; year: 2021
-    santa_maria, ca; county code(s): 083; year: 2020
-    reno, nv; county code(s): 031; year: 2019
-    santa_rosa, ca; county code(s): 097; year: 2020
-    chattanooga, tn; county code(s): 065; year: 2021
-    fayetteville, ar; county code(s): 143; year: 2021
-    lexington, ky; county code(s): 067; year: 2020
-    manchester, nh; county code(s): 011; year: 2021
-    lakeland, fl; county code(s): 105; year: 2021
-    vallejo, ca; county code(s): 095; year: 2020
-    !!!!! NOTICE: skipping spokane, wa due to year !!!!!
-    """
+    locations_info = """seattle, wa; county code(s): 033; year: 2019
+new_york, ny; county code(s): 005,047,061,081,085; year: 2021
+los_angeles, ca; county code(s): 037; year: 2020
+chicago, il; county code(s): 043,031; year: 2021
+oakland, ca; county code(s): 001; year: 2020
+dallas, tx; county code(s): 121,397,113,257,085; year: 2020
+washington, dc; county code(s): 001; year: 2021
+houston, tx; county code(s): 157,339,201,473; year: 2020
+boston, ma; county code(s): 025; year: 2021
+philadelphia, pa; county code(s): 101; year: 2019
+atlanta, ga; county code(s): 089,121; year: 2019
+san_jose, ca; county code(s): 085; year: 2020
+!!!!! NOTICE: skipping miami, fl due to year !!!!!
+phoenix, az; county code(s): 013; year: 2021
+minneapolis, mn; county code(s): 053; year: 2021
+detroit, mi; county code(s): 163; year: 2020
+san_diego, ca; county code(s): 073; year: 2020
+aurora, co; county code(s): 001,005,035; year: 2019
+baltimore, md; county code(s): 510; year: 2021
+riverside, ca; county code(s): 065; year: 2020
+charlotte, nc; county code(s): 119; year: 2020
+austin, tx; county code(s): 491,209,453,021; year: 2020
+portland, or; county code(s): 051,005,067; year: 2020
+tampa, fl; county code(s): 057; year: 2021
+st._louis, mo; county code(s): 510; year: 2020
+cincinnati, oh; county code(s): 061; year: 2021
+pittsburgh, pa; county code(s): 003; year: 2019
+orlando, fl; county code(s): 095; year: 2021
+nashville, tn; county code(s): 037; year: 2021
+indianapolis, in; county code(s): 097; year: 2020
+sacramento, ca; county code(s): 067; year: 2020
+kansas_city, mo; county code(s): 037,047,165,095; year: 2020
+columbus, oh; county code(s): 049,045,041; year: 2021
+san_antonio, tx; county code(s): 029,325,091; year: 2020
+cleveland, oh; county code(s): 035; year: 2021
+las_vegas, nv; county code(s): 003; year: 2019
+salt_lake_city, ut; county code(s): 035; year: 2021
+milwaukee, wi; county code(s): 131,079,133; year: 2020
+raleigh, nc; county code(s): 063,183; year: 2020
+durham, nc; county code(s): 135,063,183; year: 2020
+hartford, ct; county code(s): 110; year: 2021
+!!!!! NOTICE: error for hartford, ct: Expecting value: line 1 column 1 (char 0) !!!!!
+virginia_beach, va; county code(s): 810; year: 2021
+jacksonville, fl; county code(s): 031,089; year: 2021
+richmond, va; county code(s): 760; year: 2021
+warwick, ri; county code(s): 003; year: 2021
+oklahoma_city, ok; county code(s): 125,027,109,017; year: 2021
+stamford, ct; county code(s): 190; year: 2021
+!!!!! NOTICE: error for stamford, ct: Expecting value: line 1 column 1 (char 0) !!!!!
+memphis, tn; county code(s): 157; year: 2021
+new_orleans, la; county code(s): 071; year: 2021
+buffalo, ny; county code(s): 029; year: 2021
+omaha, ne; county code(s): 055; year: 2020
+albany, ny; county code(s): 001; year: 2021
+birmingham, al; county code(s): 073,117; year: 2021
+rochester, ny; county code(s): 055; year: 2021
+grand_rapids, mi; county code(s): 081; year: 2020
+tulsa, ok; county code(s): 131,143,145,113; year: 2021
+des_moines, ia; county code(s): 153,181; year: 2021
+baton_rouge, la; county code(s): 033; year: 2021
+thousand_oaks, ca; county code(s): 111; year: 2020
+madison, wi; county code(s): 025; year: 2020
+new_haven, ct; county code(s): 170; year: 2021
+!!!!! NOTICE: error for new_haven, ct: Expecting value: line 1 column 1 (char 0) !!!!!
+bakersfield, ca; county code(s): 029; year: 2020
+worcester, ma; county code(s): 027; year: 2021
+knoxville, tn; county code(s): 093; year: 2021
+bethlehem, pa; county code(s): 077,095; year: 2019
+fresno, ca; county code(s): 019; year: 2020
+charleston, sc; county code(s): 015,019; year: 2021
+tucson, az; county code(s): 019; year: 2021
+dayton, oh; county code(s): 057,113; year: 2021
+albuquerque, nm; county code(s): 001; year: 2020
+columbia, sc; county code(s): 079,063; year: 2021
+midland, tx; county code(s): 329,317; year: 2020
+syracuse, ny; county code(s): 067; year: 2021
+greensboro, nc; county code(s): 081; year: 2020
+colorado_springs, co; county code(s): 041; year: 2019
+boise_city, id; county code(s): 001; year: 2021
+trenton, nj; county code(s): 021; year: 2019
+little_rock, ar; county code(s): 119; year: 2021
+toledo, oh; county code(s): 095; year: 2021
+wichita, ks; county code(s): 173; year: 2021
+akron, oh; county code(s): 153; year: 2021
+portland, me; county code(s): 005; year: 2021
+cape_coral, fl; county code(s): 071; year: 2021
+provo, ut; county code(s): 049; year: 2021
+el_paso, tx; county code(s): 141; year: 2020
+springfield, ma; county code(s): 013; year: 2021
+stockton, ca; county code(s): 077; year: 2020
+ogden, ut; county code(s): 057; year: 2021
+boulder, co; county code(s): 013; year: 2019
+huntsville, al; county code(s): 103,089,083; year: 2021
+santa_maria, ca; county code(s): 083; year: 2020
+reno, nv; county code(s): 031; year: 2019
+santa_rosa, ca; county code(s): 097; year: 2020
+chattanooga, tn; county code(s): 065; year: 2021
+fayetteville, ar; county code(s): 143; year: 2021
+lexington, ky; county code(s): 067; year: 2020
+manchester, nh; county code(s): 011; year: 2021
+lakeland, fl; county code(s): 105; year: 2021
+vallejo, ca; county code(s): 095; year: 2020
+!!!!! NOTICE: skipping spokane, wa due to year !!!!!"""
     locations_info = locations_info.split("\n")
     locations_info = [x for x in locations_info if x != "" and x.find("!!!!!") == -1]
     locations_info = [x.split(";") for x in locations_info]
@@ -129,59 +127,57 @@ def get_locations_info():
     return locations_info
 
 def get_states_codes():
-    states_codes = """
-    Alabama	01	AL
-    Alaska	02	AK
-    Arizona	04	AZ
-    Arkansas	05	AR
-    California	06	CA
-    Colorado	08	CO
-    Connecticut	09	CT
-    Delaware	10	DE
-    District of Columbia	11	DC
-    Florida	12	FL
-    Georgia	13	GA
-    Hawaii	15	HI
-    Idaho	16	ID
-    Illinois	17	IL
-    Indiana	18	IN
-    Iowa	19	IA
-    Kansas	20	KS
-    Kentucky	21	KY
-    Louisiana	22	LA
-    Maine	23	ME
-    Maryland	24	MD
-    Massachusetts	25	MA
-    Michigan	26	MI
-    Minnesota	27	MN
-    Mississippi	28	MS
-    Missouri	29	MO
-    Montana	30	MT
-    Nebraska	31	NE
-    Nevada	32	NV
-    New Hampshire	33	NH
-    New Jersey	34	NJ
-    New Mexico	35	NM
-    New York	36	NY
-    North Carolina	37	NC
-    North Dakota	38	ND
-    Ohio	39	OH
-    Oklahoma	40	OK
-    Oregon	41	OR
-    Pennsylvania	42	PA
-    Rhode Island	44	RI
-    South Carolina	45	SC
-    South Dakota	46	SD
-    Tennessee	47	TN
-    Texas	48	TX
-    Utah	49	UT
-    Vermont	50	VT
-    Virginia	51	VA
-    Washington	53	WA
-    West Virginia	54	WV
-    Wisconsin	55	WI
-    Wyoming	56	WY
-    """
+    states_codes = """Alabama	01	AL
+Alaska	02	AK
+Arizona	04	AZ
+Arkansas	05	AR
+California	06	CA
+Colorado	08	CO
+Connecticut	09	CT
+Delaware	10	DE
+District of Columbia	11	DC
+Florida	12	FL
+Georgia	13	GA
+Hawaii	15	HI
+Idaho	16	ID
+Illinois	17	IL
+Indiana	18	IN
+Iowa	19	IA
+Kansas	20	KS
+Kentucky	21	KY
+Louisiana	22	LA
+Maine	23	ME
+Maryland	24	MD
+Massachusetts	25	MA
+Michigan	26	MI
+Minnesota	27	MN
+Mississippi	28	MS
+Missouri	29	MO
+Montana	30	MT
+Nebraska	31	NE
+Nevada	32	NV
+New Hampshire	33	NH
+New Jersey	34	NJ
+New Mexico	35	NM
+New York	36	NY
+North Carolina	37	NC
+North Dakota	38	ND
+Ohio	39	OH
+Oklahoma	40	OK
+Oregon	41	OR
+Pennsylvania	42	PA
+Rhode Island	44	RI
+South Carolina	45	SC
+South Dakota	46	SD
+Tennessee	47	TN
+Texas	48	TX
+Utah	49	UT
+Vermont	50	VT
+Virginia	51	VA
+Washington	53	WA
+West Virginia	54	WV
+Wisconsin	55	WI
+Wyoming	56	WY"""
     states_codes = states_codes.split("\n")
     states_codes = [x for x in states_codes if x != ""]
     states_codes = [x.split("\t") for x in states_codes]
