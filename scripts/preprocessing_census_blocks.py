@@ -4,6 +4,7 @@ import geopandas as gpd
 import requests
 from sklearn.neighbors import KDTree
 from tqdm import tqdm
+import shapely
 
 import os
 
@@ -295,7 +296,7 @@ def get_patches_inside_blocks(patches, blocks):
         idx_closest = tree.query(centroid, k = k)[1][0]
         intersection_ratio = (patches.iloc[idx_closest].geometry.intersection(row.geometry).area / patch_area).values
 
-        block_patches = ""
+        block_patches = {}
         # for each of the closest patches
         for idx, ratio in zip(idx_closest, intersection_ratio):
             if ratio == 0:
@@ -303,11 +304,42 @@ def get_patches_inside_blocks(patches, blocks):
             
             # saves the filename and the ratio of intersection
             filename = patches.iloc[idx].patche_filename
-            block_patches += f"{filename};{ratio:.4f} "
-        
+            if filename in block_patches.keys():
+                block_patches[filename].append([patches.iloc[idx].idx, np.round(ratio, 3)])
+            else:
+                block_patches[filename] = []
+                block_patches[filename].append([patches.iloc[idx].idx, np.round(ratio, 3)])
+           
+        for key, value in block_patches.items():
+            block_patches[key] = ",".join([f"{v[0]}" for v in value]) + " " + ",".join([f"{v[1]}" for v in value])
+        block_patches =  "\n".join([f"{key}:{value}" for key, value in block_patches.items()])
         relation.append(block_patches)
     
     return relation
+
+def split_rectangle(rect):
+    x0, y0, x1, y1 = rect.bounds
+    x_mid = (x0 + x1) / 2
+    y_mid = (y0 + y1) / 2
+    return [
+        shapely.geometry.box(x0, y0, x_mid, y_mid),
+        shapely.geometry.box(x_mid, y0, x1, y_mid),
+        shapely.geometry.box(x0, y_mid, x_mid, y1),
+        shapely.geometry.box(x_mid, y_mid, x1, y1)
+    ]
+
+def split_patches_df(patches_df):
+    new_df = []
+    for i, row in patches_df.iterrows():
+        new_geom = split_rectangle(row["geometry"])
+        for j in range(4):
+            new_row = row.copy()
+            new_row["geometry"] = new_geom[j]
+            new_row["idx"] = j
+            new_df.append(new_row)
+    new_df = gpd.GeoDataFrame(new_df)
+    new_df = new_df.set_crs(patches_df.crs)
+    return new_df
 
 def compute_blocks_and_patches_relation():
     blocks_df = gpd.read_file("../data/census_blocks.geojson")
@@ -331,6 +363,7 @@ def compute_blocks_and_patches_relation():
         patches_of_city = [s for s in patches_of_city if s.endswith(".geojson")]
         patches_of_city = gpd.GeoDataFrame(pd.concat([gpd.read_file("../data/output/patches/" + city_state + "/" + s) for s in patches_of_city]))
         patches_of_city["patche_filename"] = "../data/output/patches/" + city_state + "/" + patches_of_city.patche_filename
+        patches_of_city = split_patches_df(patches_of_city)
         # run function that identify the relation between them
         relation = get_patches_inside_blocks(patches_of_city, blocks_of_city)
         
