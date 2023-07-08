@@ -4,6 +4,7 @@ import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon
 import matplotlib.pyplot as plt
 from PIL import Image
+from tqdm import tqdm
 import os
 
 
