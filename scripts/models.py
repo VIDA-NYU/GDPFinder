@@ -402,34 +402,41 @@ class DenoisingAutoEncoder(nn.Module):
 
 
 class AutoEncoderResnetExtractor(nn.Module):
-    def __init__(self, latent_dim):
+    def __init__(self, dims, denoising = False):
         super(AutoEncoderResnetExtractor, self).__init__()
-        self.latent_dim = latent_dim
-        self.hidden_dim = int(latent_dim * 2)
+        self.latent_dim = dims[-1]
+        self.denoising = denoising
         self.feature_extractor = torchvision.models.resnet50(weights="DEFAULT")
         self.feature_extractor.fc = torch.nn.Identity()
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
 
-        self.fc = nn.Sequential(
-            nn.Linear(2048, self.hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.latent_dim),
-        )
+        self.fc = []
+        for i in range(len(dims) - 1):
+            self.fc += [
+                nn.Linear(dims[i], dims[i + 1]),
+                nn.ReLU(),
+            ]
+        self.fc = self.fc[:-1]
+        self.fc = nn.Sequential(*self.fc)
+        
         self.encoder = nn.Sequential(
             self.feature_extractor,
             self.fc,
         )
 
-        self.decoder = [
-            nn.Linear(self.latent_dim, self.hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.hidden_dim, 2048),
-            nn.Sigmoid(),
-        ]
+        self.decoder = []
+        for i in range(len(dims) - 1, 0, -1):
+            self.decoder += [
+                nn.Linear(dims[i], dims[i - 1]),
+                nn.ReLU(),
+            ]
+        self.decoder = self.decoder[:-1]
         self.decoder = nn.Sequential(*self.decoder)
 
     def forward(self, x):
+        if self.denoising:
+            x = x + torch.normal(0, 0.1, size=x.shape, device=x.device)
         features = self.feature_extractor(x)
         x = self.fc(features)
         x = self.decoder(x)
