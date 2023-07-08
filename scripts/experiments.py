@@ -16,6 +16,56 @@ from train import (
 from utils import save_reconstruction_results, get_embeddings, cluster_embeddings
 
 
+def varying_latent_dim():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    filenames = data.get_filenames(1000)
+    filenames_test = filenames[:96]
+    dataset = data.SmallPatchesDataset(filenames, resnet=False)
+    dataset_test = data.SmallPatchesDataset(filenames_test, resnet=False)
+    dl = DataLoader(dataset, batch_size=96)
+    dl_test = DataLoader(dataset_test, batch_size=96)
+
+    print(f"Dataset shape: {len(dataset)}")
+    print("Training AutoEncoder ...")
+    print("===================================")
+
+    for latent_dim in [10, 32, 64, 128, 256, 512]:
+        model = models.AutoEncoder(
+            latent_dim=latent_dim,
+            encoder_arch="resnet50",
+            encoder_lock_weights=False,
+            decoder_layers_per_block=[3, 3, 3, 3, 3],
+            decoder_enable_bn=False,
+        ).to(device)
+
+        print(
+            f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
+        )
+
+        loss = nn.MSELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+        losses_log, batches_log = train_reconstruction(
+            model,
+            dl,
+            loss,
+            optimizer,
+            device,
+            epochs=10,
+            test_loader=dl_test,
+            dir=f"../models/AE_resnet50_{latent_dim}/",
+        )
+        save_reconstruction_results(
+            "reconstruction",
+            losses_log,
+            batches_log,
+            dl,
+            model,
+            device,
+            dir=f"../models/AE_resnet50_{latent_dim}/",
+        )
+
+
 def varying_clusters_experiment():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filenames_train = data.get_filenames(1000)
@@ -84,56 +134,6 @@ def varying_clusters_experiment():
             model,
             device,
             dir=f"../models/DEC_resnet50_clusters_{k}/",
-        )
-
-
-def varying_latent_dim():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = data.get_filenames(1000)
-    filenames_test = filenames[:96]
-    dataset = data.SmallPatchesDataset(filenames, resnet=False)
-    dataset_test = data.SmallPatchesDataset(filenames_test, resnet=False)
-    dl = DataLoader(dataset, batch_size=96)
-    dl_test = DataLoader(dataset_test, batch_size=96)
-
-    print(f"Dataset shape: {len(dataset)}")
-    print("Training AutoEncoder ...")
-    print("===================================")
-
-    for latent_dim in [10, 32, 64, 128, 256, 512]:
-        model = models.AutoEncoder(
-            latent_dim=latent_dim,
-            encoder_arch="resnet50",
-            encoder_lock_weights=False,
-            decoder_layers_per_block=[3, 3, 3, 3, 3],
-            decoder_enable_bn=False,
-        ).to(device)
-
-        print(
-            f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
-        )
-
-        loss = nn.MSELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-        losses_log, batches_log = train_reconstruction(
-            model,
-            dl,
-            loss,
-            optimizer,
-            device,
-            epochs=10,
-            test_loader=dl_test,
-            dir=f"../models/AE_resnet50_{latent_dim}/",
-        )
-        save_reconstruction_results(
-            "reconstruction",
-            losses_log,
-            batches_log,
-            dl,
-            model,
-            device,
-            dir=f"../models/AE_resnet50_{latent_dim}/",
         )
 
 
