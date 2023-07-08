@@ -1,101 +1,6 @@
-import os
-import numpy as np
-from tqdm import tqdm
-
-from sklearn.cluster import KMeans
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 import torchvision
-from torch.utils.data import DataLoader
-
-
-class SmallAutoEncoder(nn.Module):
-    def __init__(self, latent_dim=64, layers_per_block=1):
-        super(SmallAutoEncoder, self).__init__()
-
-        n_blocks = 3
-        blocks_in_channel = [3, 8, 16]
-        blocks_out_channel = [8, 16, 32]
-
-        self.encoder = []
-        for b in range(n_blocks):
-            self.encoder.append(
-                nn.Conv2d(
-                    blocks_in_channel[b],
-                    blocks_out_channel[b],
-                    kernel_size=3,
-                    stride=2,
-                    padding=1,
-                )
-            )
-            self.encoder.append(nn.ReLU(True))
-            for layer in range(layers_per_block - 1):
-                self.encoder.append(
-                    nn.Conv2d(
-                        blocks_out_channel[b],
-                        blocks_out_channel[b],
-                        kernel_size=3,
-                        stride=1,
-                        padding=1,
-                    )
-                )
-                self.encoder.append(nn.ReLU(True))
-            self.encoder.append(nn.BatchNorm2d(blocks_out_channel[b]))
-        self.encoder.append(nn.Flatten(1))
-        self.encoder.append(nn.Linear(4 * 4 * 32, 128))
-        self.encoder.append(nn.ReLU(True))
-        self.encoder.append(nn.Linear(128, latent_dim))
-        self.encoder = nn.Sequential(*self.encoder)
-
-        blocks_in_channel.reverse()
-        blocks_out_channel.reverse()
-
-        self.decoder = [
-            nn.Linear(latent_dim, 128),
-            nn.ReLU(True),
-            nn.Linear(128, 4 * 4 * 32),
-            nn.ReLU(True),
-            nn.Unflatten(dim=1, unflattened_size=(32, 4, 4)),
-        ]
-
-        for b in range(n_blocks):
-            self.decoder.append(
-                nn.ConvTranspose2d(
-                    blocks_out_channel[b],
-                    blocks_in_channel[b],
-                    kernel_size=3,
-                    stride=2,
-                    padding=1,
-                    output_padding=0 if b == 0 else 1,
-                )
-            )
-            self.decoder.append(nn.BatchNorm2d(blocks_in_channel[b]))
-            self.decoder.append(nn.ReLU(True))
-            for layer in range(layers_per_block - 1):
-                self.decoder.append(
-                    nn.Conv2d(
-                        blocks_in_channel[b],
-                        blocks_in_channel[b],
-                        kernel_size=3,
-                        stride=1,
-                        padding=1,
-                    )
-                )
-                self.decoder.append(nn.ReLU(True))
-
-        self.decoder.append(nn.Conv2d(3, 3, kernel_size=3, stride=1, padding=1))
-        self.decoder.append(nn.Sigmoid())
-        self.decoder = nn.Sequential(*self.decoder)
-
-    def forward(self, x):
-        # encode
-        x = self.encoder(x)
-        encoded = x
-
-        # decode
-        decoded = self.decoder(x)
-        return encoded, decoded
 
 
 class AutoEncoder(nn.Module):
@@ -495,20 +400,21 @@ class DenoisingAutoEncoder(nn.Module):
         out = self.decoder(out)
         return out
 
+
 class AutoEncoderResnetExtractor(nn.Module):
     def __init__(self, latent_dim):
         super(AutoEncoderResnetExtractor, self).__init__()
         self.latent_dim = latent_dim
         self.hidden_dim = int(latent_dim * 2)
-        self.feature_extractor = torchvision.models.resnet50(weights = "DEFAULT")
+        self.feature_extractor = torchvision.models.resnet50(weights="DEFAULT")
         self.feature_extractor.fc = torch.nn.Identity()
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
-        
+
         self.fc = nn.Sequential(
             nn.Linear(2048, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.latent_dim)
+            nn.Linear(self.hidden_dim, self.latent_dim),
         )
         self.encoder = nn.Sequential(
             self.feature_extractor,
