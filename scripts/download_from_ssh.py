@@ -7,7 +7,6 @@ import shutil
 from tqdm import tqdm
 
 import handle_tif_images
-import data
 
 
 def download_patches():
@@ -34,7 +33,7 @@ def download_patches():
         df = handle_tif_images.create_files_df()
         df.to_file("../data/output/downloaded_scenes_metadata.geojson")
 
-        data.save_samples_patch(output_dir="old_patches", size=224)
+        handle_tif_images.save_samples_patch(output_dir="old_patches", size=224)
 
         os.remove("../data/output/unzipped_files/" + file)
 
