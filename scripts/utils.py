@@ -18,7 +18,7 @@ def get_embeddings(loader, model, device):
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            embedding = model.encoder(batch)
+            embedding = model(batch)
             embeddings.append(embedding.cpu().detach().numpy())
     embeddings = np.concatenate(embeddings, axis=0)
     return embeddings
@@ -39,28 +39,6 @@ def get_clusters(loader, model, device):
 def cluster_embeddings(embeddings, n_clusters):
     cl = KMeans(n_clusters=n_clusters, n_init=20).fit(embeddings)
     return cl.cluster_centers_
-
-
-def plot_embedding_proj(embeddings, labels=None, dir=None):
-    """
-    Plot the latent space using t-SNE, color based on the clusters.
-
-    Inputs:
-        embeddings - np.array of shape (n_samples, n_features)
-        labels - np.array of shape (n_samples, )
-        dir - str, directory to save the plot
-    """
-
-    embeddings_proj = TSNE(n_components=2).fit_transform(embeddings)
-
-    if labels is None:
-        labels = np.zeros(embeddings.shape[0])
-    plt.scatter(embeddings_proj[:, 0], embeddings_proj[:, 1], c=labels, cmap="tab10")
-    if dir is not None:
-        plt.savefig(dir)
-        plt.close()
-    else:
-        plt.show()
 
 
 def plot_loss_curve(train_losses_log, test_losses_log = None, dir=None):
