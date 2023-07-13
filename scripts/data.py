@@ -91,7 +91,7 @@ def get_filenames_small_patches(n):
     return filenames
 
 
-def get_filenames_center_blocks(intersection_threshold=0, patches_count_max=10):
+def get_filenames_center_blocks(intersection_threshold=0.25, patches_count_max=50):
     blocks_df = gpd.read_file("../data/census_blocks_patches_v2.geojson")
     # cleaning blocks with missing data
     blocks_df = blocks_df[blocks_df.mhi > 0]
