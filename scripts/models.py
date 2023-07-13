@@ -52,6 +52,7 @@ class PetrainedEncoder(nn.Module):
         super(PetrainedEncoder, self).__init__()
         assert arch in [
             "vgg16",
+            "vgg16_small_patch",
             "vgg19",
             "resnet50",
             "resnet50_small_patch",
@@ -59,40 +60,69 @@ class PetrainedEncoder(nn.Module):
         ]
         self.latent_dim = latent_dim
         self.arch = arch
-        self.lock_weights = lock_weights
-        self.model = self._get_model()
+        self._get_model()
+        if lock_weights:
+            self.lock_weights()
 
     def _get_model(self):
-        if self.arch == "vgg16":
-            model = torchvision.models.vgg16(weights="DEFAULT")
+        if self.arch == "vgg16" or self.arch == "vgg16_small_patch":
+            self.pretrained_model = torchvision.models.vgg16(weights="DEFAULT")
+            if self.arch == "vgg16_small_patch":
+                self.pretrained_model.features[4] = nn.Identity()
+            self.pretrained_model = nn.Sequential(
+                *list(self.pretrained_model.children())[:-1]
+            )
+            self.extended_model = nn.Sequential(
+                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(1, -1),
+                nn.Linear(32 * 3 * 3, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.latent_dim),
+            )
         elif self.arch == "vgg19":
-            model = torchvision.models.vgg19(weights="DEFAULT")
+            self.pretrained_model = torchvision.models.vgg19(weights="DEFAULT")
+            self.pretrained_model = nn.Sequential(
+                *list(self.pretrained_model.children())[:-1]
+            )
+            self.extended_model = nn.Sequential(
+                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(1, -1),
+                nn.Linear(32 * 3 * 3, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.latent_dim),
+            )
+
         elif self.arch == "resnet50" or self.arch == "resnet50_small_patch":
-            model = torchvision.models.resnet50(weights="DEFAULT")
+            self.pretrained_model = torchvision.models.resnet50(weights="DEFAULT")
+            if self.arch == "resnet50_small_patch":
+                self.pretrained_model.conv1.stride = (1, 1)
+            self.pretrained_model = nn.Sequential(
+                *list(self.pretrained_model.children())[:-2]
+            )
+            self.extended_model = nn.Sequential(
+                nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(1, -1),
+                nn.Linear(32 * 3 * 3, 256),
+                nn.ReLU(),
+                nn.Linear(256, self.latent_dim),
+            )
         elif self.arch == "resnet152":
-            model = torchvision.models.resnet152(weights="DEFAULT")
-
-        if self.lock_weights:
-            for param in model.parameters():
-                param.requires_grad = False
-
-        if "vgg" in self.arch:
-            model = list(model.children())[:-1]
-            model += [
-                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
-                nn.ReLU(),
-                nn.Flatten(1, -1),
-                nn.Linear(32 * 3 * 3, 256),
-                nn.ReLU(),
-                nn.Linear(256, self.latent_dim),
-            ]
-        elif self.arch == "resnet50_small_patch":
-            model = [
-                nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3, bias=False)
-            ] + list(model.children())[1:-2]
-            model += [
+            self.pretrained_model = torchvision.models.resnet152(weights="DEFAULT")
+            self.pretrained_model = nn.Sequential(
+                *list(self.pretrained_model.children())[:-2]
+            )
+            self.extended_model = nn.Sequential(
                 nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1),
                 nn.ReLU(),
                 nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
@@ -103,28 +133,20 @@ class PetrainedEncoder(nn.Module):
                 nn.Linear(32 * 3 * 3, 256),
                 nn.ReLU(),
                 nn.Linear(256, self.latent_dim),
-            ]
+            )
 
-        elif "resnet" in self.arch:
-            model = list(model.children())[:-2]
-            model += [
-                nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0),
-                nn.ReLU(),
-                nn.Conv2d(256, 32, kernel_size=3, stride=1, padding=0),
-                nn.ReLU(),
-                nn.Flatten(1, -1),
-                nn.Linear(32 * 3 * 3, 256),
-                nn.ReLU(),
-                nn.Linear(256, self.latent_dim),
-            ]
+    def lock_weights(self):
+        for param in self.pretrained_model.parameters():
+            param.requires_grad = False
 
-        model = nn.Sequential(*model)
-        return model
+    def unlock_weights(self):
+        for param in self.pretrained_model.parameters():
+            param.requires_grad = True
 
     def forward(self, x):
-        return self.model(x)
+        x = self.pretrained_model(x)
+        x = self.extended_model(x)
+        return x
 
 
 class Decoder(nn.Module):
@@ -160,14 +182,14 @@ class Decoder(nn.Module):
             nn.Unflatten(dim=1, unflattened_size=(8, 7, 7)),
         ]
 
-        if encoder_arch == "resnet50_small_patch":
+        if "small_patch" in encoder_arch:
             n_blocks = 4
-            blocks_in_channel = [8, 32, 64, 8]
-            blocks_out_channel = [32, 64, 8, 3]
+            blocks_in_channel = [8, 128, 256, 16]
+            blocks_out_channel = [128, 256, 16, 3]
         else:
             n_blocks = 5
-            blocks_in_channel = [8, 64, 128, 64, 8]
-            blocks_out_channel = [64, 128, 64, 8, 3]
+            blocks_in_channel = [8, 128, 512, 128, 8]
+            blocks_out_channel = [128, 512, 128, 8, 3]
         for b in range(n_blocks):
             self.decoder.append(
                 nn.ConvTranspose2d(
