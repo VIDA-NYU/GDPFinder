@@ -279,7 +279,10 @@ def request_census_data():
 
 def get_blocks_df():
     block_folders = os.listdir("../data/blocks")
-    scenes_df = [gpd.read_file("../data/scenes_metadata/"+f) for f in os.listdir("../data/scenes_metadata/")]
+    scenes_df = [
+        gpd.read_file("../data/scenes_metadata/" + f)
+        for f in os.listdir("../data/scenes_metadata/")
+    ]
     scenes_df = gpd.GeoDataFrame(pd.concat(scenes_df, ignore_index=True))
     scenes_df_poly = scenes_df.unary_union
     blocks_df = []
@@ -290,50 +293,66 @@ def get_blocks_df():
         if len(block_df) > 0:
             blocks_df.append(block_df)
     blocks_df = gpd.GeoDataFrame(pd.concat(blocks_df, ignore_index=True))
-    blocks_df = blocks_df.rename(columns = {"STATEFP" : "state", "COUNTYFP" : "county", "TRACTCE" : "tract", "BLKGRPCE" : "block group"})
-    blocks_df = blocks_df[['state', 'county', 'tract', 'block group', 'geometry']]
+    blocks_df = blocks_df.rename(
+        columns={
+            "STATEFP": "state",
+            "COUNTYFP": "county",
+            "TRACTCE": "tract",
+            "BLKGRPCE": "block group",
+        }
+    )
+    blocks_df = blocks_df[["state", "county", "tract", "block group", "geometry"]]
     return blocks_df
+
 
 def get_patches_inside_blocks(patches, blocks):
     patches = patches.to_crs("epsg:3395")
     blocks = blocks.to_crs("epsg:3395")
 
     # build tree with patches centers
-    patches_centers = np.stack(patches.geometry.apply(lambda x : np.array(x.centroid.coords)).values).squeeze()
+    patches_centers = np.stack(
+        patches.geometry.apply(lambda x: np.array(x.centroid.coords)).values
+    ).squeeze()
     tree = KDTree(patches_centers)
 
     patch_area = patches.area.mean()
     relation = []
     # for each patch
-    for i, row in tqdm(blocks.iterrows(), total = blocks.shape[0]):
+    for i, row in tqdm(blocks.iterrows(), total=blocks.shape[0]):
         block_area = row["geometry"].area
         # estimate a good number of neighbors to search for
         k = int(max(5, min(block_area // patch_area, patches.shape[0] / 5)))
         # verify if it intersects the k closest patches
         centroid = np.array(row["geometry"].centroid.coords).reshape(1, 2)
-        idx_closest = tree.query(centroid, k = k)[1][0]
-        intersection_ratio = (patches.iloc[idx_closest].geometry.intersection(row.geometry).area / patch_area).values
+        idx_closest = tree.query(centroid, k=k)[1][0]
+        intersection_ratio = (
+            patches.iloc[idx_closest].geometry.intersection(row.geometry).area
+            / patch_area
+        ).values
 
         block_patches = {}
         # for each of the closest patches
         for idx, ratio in zip(idx_closest, intersection_ratio):
             if ratio == 0:
                 continue
-            
+
             # saves the filename and the ratio of intersection
             filename = patches.iloc[idx].patche_filename
             if filename in block_patches.keys():
-                block_patches[filename].append([patches.iloc[idx].idx, np.round(ratio, 3)])
+                block_patches[filename].append(
+                    [patches.iloc[idx].idx, np.round(ratio, 3)]
+                )
             else:
                 block_patches[filename] = []
-                block_patches[filename].append([patches.iloc[idx].idx, np.round(ratio, 3)])
-           
-        for key, value in block_patches.items():
-            block_patches[key] = ",".join([f"{v[0]}" for v in value]) + " " + ",".join([f"{v[1]}" for v in value])
-        block_patches =  "\n".join([f"{key}:{value}" for key, value in block_patches.items()])
+                block_patches[filename].append(
+                    [patches.iloc[idx].idx, np.round(ratio, 3)]
+                )
+
+        block_patches = str(block_patches)
         relation.append(block_patches)
-    
+
     return relation
+
 
 def split_rectangle(rect):
     x0, y0, x1, y1 = rect.bounds
@@ -343,8 +362,9 @@ def split_rectangle(rect):
         shapely.geometry.box(x0, y0, x_mid, y_mid),
         shapely.geometry.box(x_mid, y0, x1, y_mid),
         shapely.geometry.box(x0, y_mid, x_mid, y1),
-        shapely.geometry.box(x_mid, y_mid, x1, y1)
+        shapely.geometry.box(x_mid, y_mid, x1, y1),
     ]
+
 
 def split_patches_df(patches_df):
     new_df = []
@@ -359,19 +379,20 @@ def split_patches_df(patches_df):
     new_df = new_df.set_crs(patches_df.crs)
     return new_df
 
+
 def compute_blocks_and_patches_relation():
     blocks_df = gpd.read_file("../data/census_blocks.geojson")
 
+    # get name of cities shapefiles
     cities_shp = os.listdir("../data/scenes_metadata/")
     cities_shp = [s for s in cities_shp if s.endswith(".geojson")]
-    cities_shp = cities_shp
     blocks_df["patches_relation"] = ""
 
     # going to compare patches and blocks separated by city for better computing time
     for city_shp in cities_shp:
         city_df = gpd.read_file("../data/scenes_metadata/" + city_shp)
         city_state = city_shp.replace("_last_scenes.geojson", "")
-        
+
         # keep only blocks inside city
         is_in_city = blocks_df.geometry.intersects(city_df.unary_union)
         blocks_of_city = blocks_df[is_in_city]
@@ -379,20 +400,33 @@ def compute_blocks_and_patches_relation():
         # get patches of the city
         patches_of_city = os.listdir("../data/output/patches/" + city_state)
         patches_of_city = [s for s in patches_of_city if s.endswith(".geojson")]
-        patches_of_city = gpd.GeoDataFrame(pd.concat([gpd.read_file("../data/output/patches/" + city_state + "/" + s) for s in patches_of_city]))
-        patches_of_city["patche_filename"] = "../data/output/patches/" + city_state + "/" + patches_of_city.patche_filename
+        patches_of_city = gpd.GeoDataFrame(
+            pd.concat(
+                [
+                    gpd.read_file("../data/output/patches/" + city_state + "/" + s)
+                    for s in patches_of_city
+                ]
+            )
+        )
+        patches_of_city["patche_filename"] = (
+            city_state + "/" + patches_of_city.patche_filename
+        )
         patches_of_city = split_patches_df(patches_of_city)
         # run function that identify the relation between them
         relation = get_patches_inside_blocks(patches_of_city, blocks_of_city)
-        
+
         blocks_df.loc[is_in_city, "patches_relation"] = relation
-        blocks_df.to_file("../data/census_blocks_patches.geojson")
-    
+        # remove geometry and save to csv
+        blocks_df.drop("geometry", axis=1).to_csv("../data/blocks_patches_relation.csv")
+        # blocks_df.to_file("../data/census_blocks_patches_v3.geojson")
+
 
 if __name__ == "__main__":
     # census_df = request_census_data()
     # blocks_df = get_blocks_df()
     # blocks_df = blocks_df.merge(census_df, on=["state", "county", "tract", "block group"], how="left")
+    # blocks_df = gpd.read_file("../data/census_blocks.geojson")
+    # blocks_df["area"] = blocks_df.geometry.to_crs({"proj": "cea"}).area / 10**6
+    # blocks_df["density"] = blocks_df["pop"] / blocks_df["area"]
     # blocks_df.to_file("../data/census_blocks.geojson")
     compute_blocks_and_patches_relation()
-
