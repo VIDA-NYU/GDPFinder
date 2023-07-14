@@ -3,6 +3,7 @@ import pandas as pd
 import geopandas as gpd
 from tqdm import tqdm
 import os
+from ast import literal_eval
 from PIL import Image
 import torch
 from torchvision import transforms
@@ -92,27 +93,26 @@ def get_filenames_small_patches(n):
 
 
 def get_filenames_center_blocks(intersection_threshold=0.25, patches_count_max=50):
-    blocks_df = gpd.read_file("../data/census_blocks_patches_v2.geojson")
-    # cleaning blocks with missing data
-    blocks_df = blocks_df[blocks_df.mhi > 0]
+    blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
+    blocks_df["mhi"] = blocks_df["mhi"].apply(lambda x: np.nan if x < 0 else x)
     blocks_df = blocks_df.dropna()
-    blocks_df = blocks_df[blocks_df.patches_relation.apply(len) > 0]
+    blocks_df.patches_relation = blocks_df.patches_relation.apply(literal_eval)
+    blocks_df["n_patches"] = blocks_df.patches_relation.apply(len)
+    blocks_df = blocks_df[blocks_df.n_patches > 0]
 
-    def clean_patches_relation(s):
-        s = s.split("\n")
-        s = dict([x.split(":") for x in s])
+    all_filenames = []
+    for i, row in tqdm(blocks_df.iterrows(), total=len(blocks_df)):
         filenames = []
         data = []
+        s = row.patches_relation
         for key, value in s.items():
-            value = value.split(" ")
-            idx = np.array([float(v) for v in value[0].split(",")])
-            ratio = np.array([float(v) for v in value[1].split(",")])
-            idx = idx[ratio > intersection_threshold]
-            ratio = ratio[ratio > intersection_threshold]
-            for i in range(len(idx)):
-                data.append([idx[i], ratio[i]])
+            value = np.array(value)
+            value = value[value[:, 1] > intersection_threshold, :]
+            for i in range(len(value)):
+                data.append(value[i, :])
                 filenames.append(key)
         data = np.array(data)
+
         if len(filenames) > patches_count_max:
             selected = np.random.choice(
                 len(filenames),
@@ -122,18 +122,12 @@ def get_filenames_center_blocks(intersection_threshold=0.25, patches_count_max=5
             )
             data = data[selected, :]
             filenames = [filenames[i] for i in selected]
-        return [filenames, data]
+        all_filenames.extend(
+            [
+                f"../data/output/patches/{filenames[i]} {int(data[i, 0])}"
+                for i in range(len(filenames))
+            ]
+        )
 
-    blocks_df["clean_patches_relation"] = blocks_df.patches_relation.apply(
-        clean_patches_relation
-    )
-    blocks_df["n_patches"] = blocks_df["clean_patches_relation"].apply(
-        lambda x: x[1].shape[0]
-    )
-    blocks_df = blocks_df[blocks_df.n_patches > 0]
-
-    filenames = blocks_df.clean_patches_relation.apply(
-        lambda x: [x[0][i] + f" {int(x[1][i, 0])}" for i in range(len(x[0]))]
-    ).sum()
-    np.random.shuffle(filenames)
-    return filenames
+    np.random.shuffle(all_filenames)
+    return all_filenames
