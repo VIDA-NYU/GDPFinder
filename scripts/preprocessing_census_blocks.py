@@ -5,8 +5,8 @@ import requests
 from sklearn.neighbors import KDTree
 from tqdm import tqdm
 import shapely
-
 import os
+
 
 def get_locations_info():
     locations_info = """seattle, wa; county code(s): 033; year: 2019
@@ -117,15 +117,16 @@ vallejo, ca; county code(s): 095; year: 2020
     locations_info = [x.split(";") for x in locations_info]
     locations_info = [
         {
-            "city" : x[0].split(",")[0],
-            "state" : x[0].split(",")[1].strip(" "),
-            "county_codes" : x[1].split(":")[1].strip(" "),
-            "year" : x[2].split(":")[1].strip(" ")
+            "city": x[0].split(",")[0],
+            "state": x[0].split(",")[1].strip(" "),
+            "county_codes": x[1].split(":")[1].strip(" "),
+            "year": x[2].split(":")[1].strip(" "),
         }
         for x in locations_info
     ]
     locations_info = pd.DataFrame(locations_info)
     return locations_info
+
 
 def get_states_codes():
     states_codes = """Alabama	01	AL
@@ -184,9 +185,9 @@ Wyoming	56	WY"""
     states_codes = [x.split("\t") for x in states_codes]
     states_codes = [
         {
-            "state" : x[0].lower().replace(" ", "_"),
-            "state_code" : x[1],
-            "state_abbr" : x[2].lower()
+            "state": x[0].lower().replace(" ", "_"),
+            "state_code": x[1],
+            "state_abbr": x[2].lower(),
         }
         for x in states_codes
     ]
@@ -194,11 +195,11 @@ Wyoming	56	WY"""
     states_codes
     return states_codes
 
+
 def request_census_data():
     locations_info = get_locations_info()
     states_codes = get_states_codes()
     ## Retrieve census data for specified location(s) and geography type (e.g., block group)
-
 
     # Replace YOUR_API_KEY_HERE with your own API key
     API_KEY = "bd041cbc149095f7871a9d002c6ca41d7b8010ef"
@@ -213,7 +214,9 @@ def request_census_data():
     for i, location in locations_info.iterrows():
         year = location["year"]
         state_abbr = location["state"]
-        state_code = states_codes[states_codes["state_abbr"] == state_abbr]["state_code"].values[0]
+        state_code = states_codes[states_codes["state_abbr"] == state_abbr][
+            "state_code"
+        ].values[0]
         county_sequence = location["county_codes"]
         location = f"state:{state_code}+county:{county_sequence}+tract:*"
 
@@ -244,11 +247,25 @@ def request_census_data():
     census_df["B15003_023E"] = pd.to_numeric(census_df["B15003_023E"])
     census_df["B15003_024E"] = pd.to_numeric(census_df["B15003_024E"])
     census_df["B15003_025E"] = pd.to_numeric(census_df["B15003_025E"])
-    census_df["ed_attain"] = (100*((census_df["B15003_022E"] + census_df["B15003_023E"] + census_df["B15003_024E"] + census_df["B15003_025E"]) / census_df["B15003_001E"])).round(2)
+    census_df["ed_attain"] = (
+        100
+        * (
+            (
+                census_df["B15003_022E"]
+                + census_df["B15003_023E"]
+                + census_df["B15003_024E"]
+                + census_df["B15003_025E"]
+            )
+            / census_df["B15003_001E"]
+        )
+    ).round(2)
 
     # Remove columns
-    census_df.drop(["B15003_001E", "B15003_022E", "B15003_023E", "B15003_024E","B15003_025E"], axis=1, inplace=True)
-
+    census_df.drop(
+        ["B15003_001E", "B15003_022E", "B15003_023E", "B15003_024E", "B15003_025E"],
+        axis=1,
+        inplace=True,
+    )
 
     # Rename columns
     census_df.rename(columns={"B01003_001E": "pop"}, inplace=True)
@@ -258,6 +275,7 @@ def request_census_data():
     census_df["ed_attain"] = pd.to_numeric(census_df["ed_attain"])
     census_df = census_df.drop_duplicates()
     return census_df
+
 
 def get_blocks_df():
     block_folders = os.listdir("../data/blocks")
