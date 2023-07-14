@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
+from openTSNE import TSNE
 from sklearn.cluster import KMeans
 
 
@@ -24,6 +24,25 @@ def get_embeddings(loader, model, device):
     return embeddings
 
 
+def proj_embeddings(embeddings):
+    tsne = TSNE(
+        perplexity=250,
+        metric="euclidean",
+        n_jobs=32,
+        random_state=42,
+        n_iter=1000,
+    )
+    proj = tsne.fit(embeddings[:100000, :])
+    proj = proj.prepare_partial(embeddings)
+    for i in range(2):
+        proj[:, i] -= proj[:, i].min()
+        proj[:, i] /= proj[:, i].max()
+        proj[:, i] *= 2
+        proj[:, i] -= 1
+
+    return proj
+
+
 def get_clusters(loader, model, device):
     clusters = []
     with torch.no_grad():
@@ -41,7 +60,7 @@ def cluster_embeddings(embeddings, n_clusters):
     return cl.cluster_centers_
 
 
-def plot_loss_curve(train_losses_log, test_losses_log = None, dir=None):
+def plot_loss_curve(train_losses_log, test_losses_log=None, dir=None):
     """
     Plot the loss curve.
 
@@ -49,9 +68,9 @@ def plot_loss_curve(train_losses_log, test_losses_log = None, dir=None):
         loss - list or numpy array (n_epochs, )
         dir - str, directory to save the plot
     """
-    plt.plot(train_losses_log, label = "Training")
+    plt.plot(train_losses_log, label="Training")
     if test_losses_log is not None:
-        plt.plot(test_losses_log, label = "Test")
+        plt.plot(test_losses_log, label="Test")
         plt.legend()
     plt.ylabel("Iter loss")
     plt.xlabel("Epoch")
@@ -66,11 +85,11 @@ def plot_loss_curve(train_losses_log, test_losses_log = None, dir=None):
 def plot_reconstruction(image, reconstruction, n_samples=5, dir=None):
     images = []
     reconstructions = []
-    idx = np.random.choice(image.shape[0], n_samples, replace = False)
+    idx = np.random.choice(image.shape[0], n_samples, replace=False)
     for i in idx:
         images.append(image[idx].cpu().detach().numpy())
         reconstructions.append(reconstruction[idx].cpu().detach().numpy())
-   
+
     images = np.concatenate(images, axis=0)
     reconstructions = np.concatenate(reconstructions, axis=0)
 
@@ -93,7 +112,13 @@ def plot_reconstruction(image, reconstruction, n_samples=5, dir=None):
 
 
 def save_reconstruction_results(
-    model, train_losses_log, train_batch_losses_log, test_losses_log, image, reconstruction, dir=None
+    model,
+    train_losses_log,
+    train_batch_losses_log,
+    test_losses_log,
+    image,
+    reconstruction,
+    dir=None,
 ):
     # verify if the directory exists
     if dir is not None and not os.path.exists(dir):
@@ -104,10 +129,10 @@ def save_reconstruction_results(
     torch.save(model.state_dict(), dir + "model.pt")
     if reconstruction.ndim == 4:
         plot_reconstruction(image, reconstruction, dir=dir + "reconstruction.png")
- 
+
 
 def save_clustering_results(
-        model, train_losses_log, train_batch_losses_log, test_losses_log, dir=None
+    model, train_losses_log, train_batch_losses_log, test_losses_log, dir=None
 ):
     # verify if the directory exists
     if dir is not None and not os.path.exists(dir):
