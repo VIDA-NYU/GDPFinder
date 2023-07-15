@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from tqdm import tqdm
 import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
@@ -14,9 +15,10 @@ def get_embeddings(loader, model, device):
     Inputs:
         loader: torch.utils.data.DataLoader
     """
+    print("Generating embeddings...")
     embeddings = []
     with torch.no_grad():
-        for batch in loader:
+        for batch in tqdm(loader):
             batch = batch.to(device)
             embedding = model(batch)
             embeddings.append(embedding.cpu().detach().numpy())
