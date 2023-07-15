@@ -1,14 +1,11 @@
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 from tqdm import tqdm
 import os
 from ast import literal_eval
 from PIL import Image
 import torch
 from torchvision import transforms
-
-from handle_tif_images import separate_tif_into_patches
 
 
 class PatchesDataset(torch.utils.data.Dataset):
