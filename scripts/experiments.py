@@ -572,7 +572,7 @@ def comparison_with_feature_extractor(latent_dim):
         "n_clusters": 25,
         "epochs": 1,
         "bach_size": 96,
-        "bach_size_clustering"  : 256,
+        "bach_size_clustering": 256,
     }
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # Defining dataset
@@ -580,9 +580,7 @@ def comparison_with_feature_extractor(latent_dim):
     filenames_train = data.get_filenames_center_blocks(
         patches_count_max=configs["patches_count_max"]
     )
-    filenames_train, filenames_test = train_test_split(
-        filenames_train, test_size=0.1, shuffle=True, random_state=0
-    )
+    filenames_train, filenames_test = train_test_split(filenames_train, test_size=0.1)
     dataset_train = data.SmallPatchesDataset(filenames_train)
     dataset_test = data.SmallPatchesDataset(filenames_test)
     dl_train = DataLoader(dataset_train, batch_size=configs["bach_size"])
@@ -611,23 +609,25 @@ def comparison_with_feature_extractor(latent_dim):
     )
 
     embeddings = train_reconstruction(
-        model = model,
-        dl_train = dl_train,
-        dl_test = dl_test,
-        loss = loss,
-        optimizer = optimizer,
-        device = device,
+        model=model,
+        dl_train=dl_train,
+        dl_test=dl_test,
+        loss=loss,
+        optimizer=optimizer,
+        device=device,
         epochs=configs["epochs"],
         return_embeddings=True,
         dir="../models/AE_resnet50_small_patch_comparison_part1/",
     )
-    #model.load_state_dict(torch.load("../models/AE_resnet50_small_patch_comparison_part1/model.pt"))
+    # model.load_state_dict(torch.load("../models/AE_resnet50_small_patch_comparison_part1/model.pt"))
     dl_train = DataLoader(dataset_train, batch_size=configs["bach_size_clustering"])
     dl_test = DataLoader(dataset_test, batch_size=configs["bach_size_clustering"])
     # Get the embeddings and cluster
     model.eval()
-    #embeddings = utils.get_embeddings(dl_train, model.encoder, device)
-    cluster_centers = torch.tensor(utils.cluster_embeddings(embeddings, configs["n_clusters"]))
+    # embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+    cluster_centers = torch.tensor(
+        utils.cluster_embeddings(embeddings, configs["n_clusters"])
+    )
     model.train()
 
     # remove grad from pretraind model
@@ -648,16 +648,20 @@ def comparison_with_feature_extractor(latent_dim):
     n_param = sum(p.numel() for p in model_dec.parameters() if p.requires_grad)
     print(f"Number of parameters: {n_param/1000000:.2f}M")
 
-    train_clustering(
-        model = model_dec,
-        dl_train = dl_train,
-        dl_test = dl_test,
-        loss = loss,
-        optimizer = optimizer,
-        device = device,
+    clusters = train_clustering(
+        model=model_dec,
+        dl_train=dl_train,
+        dl_test=dl_test,
+        loss=loss,
+        optimizer=optimizer,
+        return_clusters=True,
+        device=device,
         epochs=configs["epochs"],
         dir="../models/DEC_resnet50_small_patch_comparison_part1/",
     )
+
+    utils.plot_cluster_results(dataset_train, clusters, dir="../models/DEC_resnet50_small_patch_comparison_part1/")
+
 
     # Train the Autoencoder with feature extractor
     model = models.AutoEncoderResnetExtractor(
@@ -677,12 +681,12 @@ def comparison_with_feature_extractor(latent_dim):
     )
 
     embeddings = train_reconstruction_feature_extraction(
-        model = model,
-        dl_train = dl_train,
-        dl_test = dl_test,
-        loss = loss,
-        optimizer = optimizer,
-        device = device,
+        model=model,
+        dl_train=dl_train,
+        dl_test=dl_test,
+        loss=loss,
+        optimizer=optimizer,
+        device=device,
         epochs=configs["epochs"],
         return_embeddings=True,
         dir="../models/AE_extractor_resnet50_small_patch_comparison_part2/",
@@ -692,8 +696,10 @@ def comparison_with_feature_extractor(latent_dim):
     dl_test = DataLoader(dataset_test, batch_size=configs["bach_size_clustering"])
     # Get the embeddings and cluster
     model.eval()
-    #embeddings = utils.get_embeddings(dl_train, model.encoder, device)
-    cluster_centers = torch.tensor(utils.cluster_embeddings(embeddings, configs["n_clusters"]))
+    # embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+    cluster_centers = torch.tensor(
+        utils.cluster_embeddings(embeddings, configs["n_clusters"])
+    )
     model.train()
 
     # Train the DEC with the same encoder
@@ -708,16 +714,18 @@ def comparison_with_feature_extractor(latent_dim):
         params=list(model_dec.parameters()), lr=0.01, momentum=0.9
     )
 
-    train_clustering(
-        model_dec,
-        dl_train,
-        dl_test,
-        loss,
-        optimizer,
-        device,
+    clusters = train_clustering(
+        model = model_dec,
+        dl_train = dl_train,
+        dl_test = dl_test,
+        loss = loss,
+        optimizer = optimizer,
+        device = device,
+        return_clusters=True,
         epochs=configs["epochs"],
         dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/",
     )
+    utils.plot_cluster_results(dataset_train, clusters, dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/")
 
 
 if __name__ == "__main__":

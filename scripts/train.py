@@ -69,7 +69,7 @@ def train_reconstruction(
         model.train()
     
     if return_embeddings:
-        return embeddings
+        return np.concatenate(embeddings, axis=0)
 
 
 def train_clustering(
@@ -131,7 +131,8 @@ def train_clustering(
             dir=dir,
         )
         model.train()
-
+    if return_clusters:
+        return np.concatenate(clusters, axis=0)
 
 def train_reconstruction_feature_extraction(
     model,
@@ -199,4 +200,4 @@ def train_reconstruction_feature_extraction(
         model.train()
     
     if return_embeddings:
-        return embeddings
+        return np.concatenate(embeddings, axis=0)

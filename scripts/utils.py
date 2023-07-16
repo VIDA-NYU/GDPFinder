@@ -143,3 +143,26 @@ def save_clustering_results(
     plot_loss_curve(train_losses_log, test_losses_log, dir=dir + "loss_curve.png")
     plot_loss_curve(train_batch_losses_log, dir=dir + "batch_loss_curve.png")
     torch.save(model.state_dict(), dir + "model.pt")
+
+
+def plot_cluster_results(dataset, clusters, dir = None):
+    k = len(np.unique(clusters))
+    ncols = 5
+    nrows = k // ncols + (k % ncols > 0)
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(4 * ncols, 4 * nrows))
+    axs = axs.flatten()
+
+
+    for i in range(k):
+        idx = np.where(clusters == i)[0]
+        idx = np.random.choice(idx, min(3, len(idx)), replace=False)
+        img = np.zeros((112*3, 112, 3))
+        for j in range(len(idx)):
+            img[j*112:(j+1)*112] = dataset[idx[j]].squeeze().transpose(1, 2, 0)
+        axs[i].imshow(img)
+        axs[i].set_axis_off()
+    if dir is not None:
+        plt.savefig(dir)
+        plt.close()
+    else:
+        plt.show()
