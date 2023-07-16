@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from models import target_distribution
 from utils import save_reconstruction_results, save_clustering_results
 from tqdm import tqdm
@@ -12,6 +13,7 @@ def train_reconstruction(
     optimizer,
     device,
     epochs=100,
+    return_embeddings = False,
     dir=None,
     verbose=True,
 ):
@@ -19,11 +21,14 @@ def train_reconstruction(
     train_batch_losses_log = []
     test_losses_log = []
     for i in range(epochs):
+        if return_embeddings:
+            embeddings = []
         iter_loss = 0
         n = 0
         for batch in tqdm(dl_train):
             batch = batch.to(device)
-            decoded = model(batch)
+            encoded = model.encoder(batch)
+            decoded = model.decoder(encoded)
             rec_loss = loss(decoded, batch)
             optimizer.zero_grad()
             rec_loss.backward()
@@ -31,6 +36,8 @@ def train_reconstruction(
             iter_loss += rec_loss.item()
             n += batch.shape[0]
             train_batch_losses_log.append(rec_loss.item())
+            if return_embeddings:
+                embeddings.append(encoded.detach().cpu().numpy())
         train_losses_log.append(iter_loss / n)
         train_loss = iter_loss
     
@@ -60,6 +67,9 @@ def train_reconstruction(
         )
 
         model.train()
+    
+    if return_embeddings:
+        return embeddings
 
 
 def train_clustering(
@@ -70,6 +80,7 @@ def train_clustering(
     optimizer,
     device,
     epochs=100,
+    return_clusters = False,
     dir=None,
     verbose=True,
 ):
@@ -78,6 +89,8 @@ def train_clustering(
     test_losses_log = []
 
     for i in range(epochs):
+        if return_clusters:
+            clusters = []
         iter_loss = 0
         n = 0
         for batch in tqdm(dl_train):
@@ -91,6 +104,8 @@ def train_clustering(
             iter_loss += cluster_loss.item()
             n += batch.shape[0]
             train_batch_losses_log.append(cluster_loss.item())
+            if return_clusters:
+                clusters.append(output.detach().argmax(dim=1).cpu().numpy())
         train_losses_log.append(iter_loss / n)
 
         with torch.no_grad():
@@ -126,6 +141,7 @@ def train_reconstruction_feature_extraction(
     optimizer,
     device,
     epochs=100,
+    return_embeddings = False,
     dir=None,
     verbose=True,
 ):
@@ -133,10 +149,15 @@ def train_reconstruction_feature_extraction(
     train_batch_losses_log = []
     test_losses_log = []
     for i in range(epochs):
+        if return_embeddings:
+            embeddings = []
         iter_loss = 0
         n = 0
         for batch in tqdm(dl_train):
             batch = batch.to(device)
+            if return_embeddings:
+                encoded = model.encoder(batch)
+                embeddings.append(encoded.detach().cpu().numpy())
             feature, decoded = model(batch)
             rec_loss = loss(decoded, feature)
             optimizer.zero_grad()
@@ -176,3 +197,6 @@ def train_reconstruction_feature_extraction(
         )
 
         model.train()
+    
+    if return_embeddings:
+        return embeddings
