@@ -429,6 +429,7 @@ class AutoEncoderResnetExtractor(nn.Module):
         self.latent_dim = dims[-1]
         self.denoising = denoising
         self.feature_extractor = torchvision.models.resnet50(weights="DEFAULT")
+        self.feature_extractor.conv1.stride = (1, 1)
         self.feature_extractor.fc = torch.nn.Identity()
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
