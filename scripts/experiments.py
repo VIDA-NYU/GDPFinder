@@ -202,119 +202,6 @@ def varying_clusters_small(latent_dim=128):
         )
 
 
-def experiment_clustering_fixed_k(k):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames_train = data.get_filenames(1000)
-    filenames_test = filenames_train[:96]
-    dataset_train = data.SmallPatchesDataset(filenames_train, resnet=False)
-    dataset_test = data.SmallPatchesDataset(filenames_test, resnet=False)
-    dl_train = DataLoader(dataset_train, batch_size=96)
-    dl_test = DataLoader(dataset_test, batch_size=96)
-    latent_dim = 100
-    model = models.AutoEncoder(
-        latent_dim=latent_dim,
-        encoder_arch="resnet50",
-        encoder_lock_weights=False,
-        decoder_layers_per_block=[3, 3, 3, 3, 3],
-        decoder_enable_bn=False,
-    )
-    model.load_state_dict(torch.load("../models/AE_resnet50/model.pt"))
-    model = model.to(device)
-
-    print(
-        f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
-    )
-    print("Training Clustering AutoEncoder ...")
-    print("===================================")
-    print(f"Dataset shape: {len(dataset_train)}")
-
-    model.eval()
-    encoder = model.encoder
-    embeddings = get_embeddings(dl_train, model, device)
-    centers = torch.tensor(cluster_embeddings(embeddings, k))
-    model = models.DEC(
-        n_clusters=k,
-        embedding_dim=latent_dim,
-        encoder=encoder,
-        cluster_centers=centers,
-    ).to(device)
-
-    print(
-        f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
-    )
-
-    loss = nn.KLDivLoss(size_average=False)
-    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=0.01, momentum=0.9)
-
-    losses_log, batches_log = train_clustering(
-        model,
-        dl_train,
-        loss,
-        optimizer,
-        device,
-        epochs=10,
-        test_loader=dl_test,
-        dir=f"../models/DEC_resnet50_clusters_{k}/",
-    )
-
-    save_reconstruction_results(
-        "cluster",
-        losses_log,
-        batches_log,
-        dl_train,
-        model,
-        device,
-        dir=f"../models/DEC_resnet50_clusters_{k}/",
-    )
-
-
-def denoising_varying_latent_dim():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    filenames = data.get_filenames(1000)
-    filenames_test = filenames[:96]
-    dataset = data.SmallPatchesDataset(filenames, resnet=False)
-    dataset_test = data.SmallPatchesDataset(filenames_test, resnet=False)
-    dl = DataLoader(dataset, batch_size=96)
-    dl_test = DataLoader(dataset_test, batch_size=96)
-
-    print(f"Dataset shape: {len(dataset)}")
-    print("Training AutoEncoder ...")
-    print("===================================")
-
-    for latent_dim in [10, 32, 64, 128, 256, 512]:
-        model = models.DenoisingAutoEncoder(
-            latent_dim=latent_dim,
-            layers_per_block=[3, 3, 3, 3, 3],
-        ).to(device)
-
-        print(
-            f"Nº parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)/1000000:.2f}M"
-        )
-
-        loss = nn.MSELoss()
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-        losses_log, batches_log = train_reconstruction(
-            model,
-            dl,
-            loss,
-            optimizer,
-            device,
-            epochs=10,
-            test_loader=dl_test,
-            dir=f"../models/DAE_{latent_dim}/",
-        )
-        save_reconstruction_results(
-            "reconstruction",
-            losses_log,
-            batches_log,
-            dl,
-            model,
-            device,
-            dir=f"../models/DAE_{latent_dim}/",
-        )
-
-
 def varying_latent_dim_resnet_extractor():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     filenames_train = data.get_filenames_center_blocks()
@@ -577,7 +464,9 @@ def long_experiment_extractor(latent_dim=128):
     dl_train = DataLoader(dataset_train, batch_size=500)
     dl_test = DataLoader(dataset_test, batch_size=500)
 
-    model = models.AutoEncoderResnetExtractor([2048, 1024, 512, 256, 128, latent_dim], False)
+    model = models.AutoEncoderResnetExtractor(
+        [2048, 1024, 512, 256, 128, latent_dim], False
+    )
     model.to(device)
     loss = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -644,7 +533,9 @@ def varying_clusters_extractor(latent_dim):
     embeddings = utils.get_embeddings(dl_train, encoder, device)
 
     for k in k_values:
-        kmeans = KMeans(n_clusters=k, random_state=0, n_init = 10, verbose = True).fit(embeddings)
+        kmeans = KMeans(n_clusters=k, random_state=0, n_init=10, verbose=True).fit(
+            embeddings
+        )
         centers = torch.tensor(kmeans.cluster_centers_)
         print(f"Training DEC with k={k}")
         model = models.DEC(
@@ -674,13 +565,153 @@ def varying_clusters_extractor(latent_dim):
         joblib.dump(kmeans, f"../models/kmeans_{k}_latent_dim_{latent_dim}.pkl")
 
 
+def comparison_with_feature_extractor(latent_dim):
+    configs = {
+        "latent_dim": latent_dim,
+        "patches_count_max": 10,
+        "n_clusters": 50,
+        "epochs": 1,
+        "bach_size": 96,
+    }
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Defining dataset
+    filenames_train = data.get_filenames_center_blocks(
+        patches_count_max=configs["patches_count_max"]
+    )
+    filenames_train, filenames_test = train_test_split(
+        filenames_train, test_size=0.1, shuffle=True, random_state=0
+    )
+    dataset_train = data.SmallPatchesDataset(filenames_train)
+    dataset_test = data.SmallPatchesDataset(filenames_test)
+    dl_train = DataLoader(dataset_train, batch_size=configs["bach_size"])
+    dl_test = DataLoader(dataset_test, batch_size=configs["bach_size"])
+    print(f"Train dataset {len(dataset_train)} Test dataset {len(dataset_test)}")
+
+    # Training default ResNet50
+    model = models.AutoEncoder(
+        latent_dim=configs["latent_dim"],
+        encoder_arch="resnet50_small_path",
+        encoder_lock_weights=False,
+        decoder_layers_per_block=[3] * 5,
+        denoising=False,
+    ).to(device)
+    loss = nn.MSELoss()
+    optimizer = torch.optim.Adam(params=list(model.parameters()), lr=0.001)
+
+    n_parameters_encoder = sum(
+        p.numel() for p in model.encoder.parameters() if p.requires_grad
+    )
+    n_parameters_decoder = sum(
+        p.numel() for p in model.decoder.parameters() if p.requires_grad
+    )
+    print(
+        f"Number of parameters: encoder {n_parameters_encoder/1000000:.2f}M decoder {n_parameters_decoder/1000000:.2f}M"
+    )
+
+    train_reconstruction(
+        model,
+        dl_train,
+        dl_test,
+        loss,
+        optimizer,
+        device,
+        epochs=configs["epochs"],
+        dif="../models/AE_resnet50_small_patch_comparison_part1",
+    )
+
+    # Get the embeddings and cluster
+    model.eval()
+    embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+    cluster_centers = utils.cluster_embeddings(embeddings, configs["n_clusters"])
+    model.train()
+
+    # Train the DEC with the same encoder
+    models_dec = models.DEC(
+        n_clusters=configs["n_clusters"],
+        embedding_dim=configs["latent_dim"],
+        encoder=model.encoder,
+        cluster_centers=cluster_centers,
+    ).to(device)
+    loss = nn.KLDivLoss(size_average=False)
+    optimizer = torch.optim.SGD(
+        params=list(models_dec.parameters()), lr=0.01, momentum=0.9
+    )
+
+    n_param = sum(p.numel() for p in models_dec.parameters() if p.requires_grad)
+    print(f"Number of parameters: {n_param/1000000:.2f}M")
+
+    train_clustering(
+        models_dec,
+        dl_train,
+        dl_test,
+        loss,
+        optimizer,
+        device,
+        epochs=configs["epochs"],
+        dir="../models/DEC_resnet50_small_patch_comparison_part1",
+    )
+
+    # Train the Autoencoder with feature extractor
+    model = models.AutoEncoderResnetExtractor(
+        dims=[2048, configs["latent_dim"]], denoising=False
+    ).to(device)
+    loss = nn.MSELoss()
+    optimizer = torch.optim.Adam(params=list(model.parameters()), lr=0.001)
+
+    n_parameters_encoder = sum(
+        p.numel() for p in model.encoder.parameters() if p.requires_grad
+    )
+    n_parameters_decoder = sum(
+        p.numel() for p in model.decoder.parameters() if p.requires_grad
+    )
+    print(
+        f"Number of parameters: encoder {n_parameters_encoder/1000000:.2f}M decoder {n_parameters_decoder/1000000:.2f}M"
+    )
+
+    train_reconstruction_feature_extraction(
+        model,
+        dl_train,
+        dl_test,
+        loss,
+        optimizer,
+        device,
+        epochs=configs["epochs"],
+        dif="../models/AE_extractor_resnet50_small_patch_comparison_part2",
+    )
+
+    # Get the embeddings and cluster
+    model.eval()
+    embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+    cluster_centers = utils.cluster_embeddings(embeddings, configs["n_clusters"])
+    model.train()
+
+    # Train the DEC with the same encoder
+    models_dec = models.DEC(
+        n_clusters=configs["n_clusters"],
+        embedding_dim=configs["latent_dim"],
+        encoder=model.encoder,
+        cluster_centers=cluster_centers,
+    ).to(device)
+    loss = nn.KLDivLoss(size_average=False)
+    optimizer = torch.optim.SGD(
+        params=list(models_dec.parameters()), lr=0.01, momentum=0.9
+    )
+
+    train_clustering(
+        models_dec,
+        dl_train,
+        dl_test,
+        loss,
+        optimizer,
+        device,
+        epochs=configs["epochs"],
+        dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2",
+    )
+
 
 if __name__ == "__main__":
     np.random.seed(42)
-    # small_experiment()
-    # big_experiment()
     # varying_clusters_experiment()
-    # experiment_clustering_fixed_k(k=2)
     # varying_latent_dim()
     # denoising_varying_latent_dim()
     # varying_latent_dim_small()
