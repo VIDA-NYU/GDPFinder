@@ -45,7 +45,9 @@ def proj_embeddings(embeddings):
     return proj
 
 
-def get_clusters(loader, model, device):
+def get_clusters(loader, model, device = None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     clusters = []
     with torch.no_grad():
         for batch in loader:
