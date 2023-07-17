@@ -146,23 +146,25 @@ def save_clustering_results(
 
 
 def plot_cluster_results(dataset, clusters, dir = None):
+    #if dir is not None and not os.path.exists(dir):
+    #    os.mkdir(dir)
     k = len(np.unique(clusters))
     ncols = 5
     nrows = k // ncols + (k % ncols > 0)
-    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(4 * ncols, 4 * nrows))
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(3 * ncols, 3 * nrows))
     axs = axs.flatten()
-
+    [ax.set_axis_off() for ax in axs]
 
     for i in range(k):
         idx = np.where(clusters == i)[0]
-        idx = np.random.choice(idx, min(3, len(idx)), replace=False)
-        img = np.zeros((112*3, 112, 3))
+        idx = np.random.choice(idx, min(9, len(idx)), replace=False)
+        img = np.ones((112*3, 112*3, 3))
         for j in range(len(idx)):
-            img[j*112:(j+1)*112] = dataset[idx[j]].squeeze().transpose(1, 2, 0)
+            img_ = dataset[idx[j]].numpy().transpose(1, 2, 0)
+            img[j // 3 * 112:(j // 3 + 1) * 112, j % 3 * 112:(j % 3 + 1) * 112] = img_
         axs[i].imshow(img)
-        axs[i].set_axis_off()
     if dir is not None:
-        plt.savefig(dir)
+        plt.savefig(dir + ".png")
         plt.close()
     else:
         plt.show()
