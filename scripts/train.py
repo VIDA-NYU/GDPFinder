@@ -8,15 +8,22 @@ from tqdm import tqdm
 def train_reconstruction(
     model,
     dl_train,
-    dl_test,
-    loss,
-    optimizer,
-    device,
+    dl_test=None,
+    loss=None,
+    optimizer=None,
+    device=None,
     epochs=100,
-    return_embeddings = False,
+    return_embeddings=False,
     dir=None,
     verbose=True,
 ):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if loss is None:
+        loss = torch.nn.MSELoss()
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
     train_losses_log = []
     train_batch_losses_log = []
     test_losses_log = []
@@ -40,34 +47,34 @@ def train_reconstruction(
                 embeddings.append(encoded.detach().cpu().numpy())
         train_losses_log.append(iter_loss / n)
         train_loss = iter_loss
-    
 
-        with torch.no_grad():
-            model.eval()
-            iter_loss = 0
-            n = 0
-            for batch in tqdm(dl_test):
-                batch = batch.to(device)
-                decoded = model(batch)
-                rec_loss = loss(decoded, batch)
-                iter_loss += rec_loss.item()
-                n += batch.shape[0]
-            test_losses_log.append(iter_loss / n)
+        if dl_test is not None:
+            with torch.no_grad():
+                model.eval()
+                iter_loss = 0
+                n = 0
+                for batch in tqdm(dl_test):
+                    batch = batch.to(device)
+                    decoded = model(batch)
+                    rec_loss = loss(decoded, batch)
+                    iter_loss += rec_loss.item()
+                    n += batch.shape[0]
+                test_losses_log.append(iter_loss / n)
+
+            save_reconstruction_results(
+                model,
+                train_losses_log,
+                train_batch_losses_log,
+                test_losses_log,
+                batch,
+                decoded,
+                dir=dir,
+            )
+            model.train()
 
         if verbose:
             print(f"Epoch {i+1}/{epochs} - Loss: {train_loss:.8f}")
-        save_reconstruction_results(
-            model,
-            train_losses_log,
-            train_batch_losses_log,
-            test_losses_log,
-            batch,
-            decoded,
-            dir=dir,
-        )
 
-        model.train()
-    
     if return_embeddings:
         return np.concatenate(embeddings, axis=0)
 
@@ -80,7 +87,7 @@ def train_clustering(
     optimizer,
     device,
     epochs=100,
-    return_clusters = False,
+    return_clusters=False,
     dir=None,
     verbose=True,
 ):
@@ -134,18 +141,22 @@ def train_clustering(
     if return_clusters:
         return np.concatenate(clusters, axis=0)
 
+
 def train_reconstruction_feature_extraction(
     model,
     dl_train,
-    dl_test,
-    loss,
-    optimizer,
-    device,
+    dl_test=None,
+    loss=torch.nn.MSELoss(),
+    optimizer=None,
+    device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
     epochs=100,
-    return_embeddings = False,
+    return_embeddings=False,
     dir=None,
     verbose=True,
 ):
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+
     train_losses_log = []
     train_batch_losses_log = []
     test_losses_log = []
@@ -171,33 +182,32 @@ def train_reconstruction_feature_extraction(
 
         train_loss = iter_loss
 
+        if dl_test is not None:
+            with torch.no_grad():
+                model.eval()
+                iter_loss = 0
+                n = 0
+                for batch in tqdm(dl_test):
+                    batch = batch.to(device)
+                    feature, decoded = model(batch)
+                    rec_loss = loss(decoded, feature)
+                    iter_loss += rec_loss.item()
+                    n += batch.shape[0]
+                test_losses_log.append(iter_loss / n)
 
-        with torch.no_grad():
-            model.eval()
-            iter_loss = 0
-            n = 0
-            for batch in tqdm(dl_test):
-                batch = batch.to(device)
-                feature, decoded = model(batch)
-                rec_loss = loss(decoded, feature)
-                iter_loss += rec_loss.item()
-                n += batch.shape[0]
-            test_losses_log.append(iter_loss / n)
+            save_reconstruction_results(
+                model,
+                train_losses_log,
+                train_batch_losses_log,
+                test_losses_log,
+                batch,
+                decoded,
+                dir=dir,
+            )
 
+            model.train()
         if verbose:
             print(f"Epoch {i+1}/{epochs} - Loss: {train_loss:.8f}")
 
-        save_reconstruction_results(
-            model,
-            train_losses_log,
-            train_batch_losses_log,
-            test_losses_log,
-            batch,
-            decoded,
-            dir=dir,
-        )
-
-        model.train()
-    
     if return_embeddings:
         return np.concatenate(embeddings, axis=0)
