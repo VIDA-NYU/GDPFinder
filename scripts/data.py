@@ -128,3 +128,66 @@ def get_filenames_center_blocks(intersection_threshold=0.25, patches_count_max=5
 
     np.random.shuffle(all_filenames)
     return all_filenames
+
+def generate_datasets(
+        intersection_threshold=0.25, 
+        patches_count_max=50,
+        batch_size = 96,
+    ):
+    blocks_df_train = pd.read_csv("../data/blocks_patches_relation_train.csv")
+    blocks_df_val = pd.read_csv("../data/blocks_patches_relation_val.csv")
+    blocks_df_test = pd.read_csv("../data/blocks_patches_relation_test.csv")
+
+    blocks_df_train["patches_relation"] = blocks_df_train["patches_relation"].apply(literal_eval)
+    blocks_df_val["patches_relation"] = blocks_df_val["patches_relation"].apply(literal_eval)
+    blocks_df_test["patches_relation"] = blocks_df_test["patches_relation"].apply(literal_eval)
+
+    def iterate_over_df(df):
+        all_filenames = []
+        for i, row in tqdm(df.iterrows(), total=len(df)):
+            filenames = []
+            data = []
+            s = row.patches_relation
+            for key, value in s.items():
+                value = np.array(value)
+                value = value[value[:, 1] > intersection_threshold, :]
+                for i in range(len(value)):
+                    data.append(value[i, :])
+                    filenames.append(key)
+            data = np.array(data)
+
+            if len(filenames) > patches_count_max:
+                selected = np.random.choice(
+                    len(filenames),
+                    size=patches_count_max,
+                    replace=False,
+                    p=data[:, 1] / data[:, 1].sum(),
+                )
+                data = data[selected, :]
+                filenames = [filenames[i] for i in selected]
+            all_filenames.extend(
+                [
+                    f"../data/output/patches/{filenames[i]} {int(data[i, 0])}"
+                    for i in range(len(filenames))
+                ]
+            )
+        np.random.shuffle(all_filenames)
+        return all_filenames
+        
+    filenames_train = iterate_over_df(blocks_df_train)
+    filenames_val = iterate_over_df(blocks_df_val)
+    filenames_test = iterate_over_df(blocks_df_test)
+    dl_train = torch.utils.data.DataLoader(
+        SmallPatchesDataset(filenames_train),
+        batch_size=batch_size,
+    )
+    dl_val = torch.utils.data.DataLoader(
+        SmallPatchesDataset(filenames_val),
+        batch_size=batch_size,
+    )
+    dl_test = torch.utils.data.DataLoader(
+        SmallPatchesDataset(filenames_test),
+        batch_size=batch_size,
+    )
+
+    return dl_train, dl_val, dl_test
