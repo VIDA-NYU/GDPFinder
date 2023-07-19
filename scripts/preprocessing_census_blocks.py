@@ -468,9 +468,11 @@ def create_train_test_df(intersection_threshold = 0.25, patches_count_max = 100)
             )
             data = data[selected, :]
             filenames = [filenames[i] for i in selected]
-            filenames = [f"../data/output/patches/{filenames[i]} {int(data[i, 0])}" for i in range(len(filenames))]
+        filenames = [f"../data/output/patches/{filenames[i]} {int(data[i, 0])}" for i in range(len(filenames))]
         all_filenames.append(filenames)
     blocks_df["filenames"] = all_filenames
+    blocks_df = blocks_df[blocks_df.filenames.apply(len) > 0]
+    blocks_df = blocks_df.drop(["patches_relation", "n_scenes", "most_commom_scene"], axis=1)
 
     # split train and test
     train_idx, test_idx = train_test_split(blocks_df.index, test_size=0.15, random_state=42)
