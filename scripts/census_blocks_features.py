@@ -1,88 +1,61 @@
 import numpy as np
 import pandas as pd
-import geopandas as gpd
 import torch
 from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
-
+from ast import literal_eval
+import joblib
+from tqdm import tqdm
 
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 
 import models
 import data
+import utils
 
 
-def load_blocks_data(intersection_threshold=0.25, patches_count_max=50):
-    blocks_df = gpd.read_file("../data/census_blocks_patches_v2.geojson")
+def load_blocks_df():
+    blocks_train = pd.read_csv("../data/blocks_patches_relation_train.csv")
+    blocks_val = pd.read_csv("../data/blocks_patches_relation_val.csv")
+    blocks_test = pd.read_csv("../data/blocks_patches_relation_test.csv")
+    blocks_train["filenames"] = blocks_train["filenames"].apply(literal_eval)
+    blocks_val["filenames"] = blocks_val["filenames"].apply(literal_eval)
+    blocks_test["filenames"] = blocks_test["filenames"].apply(literal_eval)
+    return blocks_train, blocks_val, blocks_test
 
-    # Clean data
-    blocks_df = blocks_df[blocks_df.mhi > 0]
-    blocks_df = blocks_df.dropna()
-    blocks_df = blocks_df[blocks_df.patches_relation.apply(len) > 0]
-    blocks_df["area_km2"] = blocks_df.geometry.to_crs({"proj": "cea"}).area / 10**6
-    blocks_df["densisty"] = blocks_df["pop"] / blocks_df["area_km2"]
 
-    def clean_patches_relation(s):
-        s = s.split("\n")
-        s = dict([x.split(":") for x in s])
-        filenames = []
-        data = []
-        # transform test into array, filtering by intersection threshold
-        for key, value in s.items():
-            idx, ratio = value.split(" ")
-            idx = np.array([float(v) for v in idx.split(",")])
-            ratio = np.array([float(v) for v in ratio.split(",")])
-            idx = idx[ratio > intersection_threshold]
-            ratio = ratio[ratio > intersection_threshold]
-            for i in range(len(idx)):
-                filenames.append(key)
-                data.append((idx[i], ratio[i]))
-        data = np.array(data)
-        if len(filenames) > patches_count_max:
-            selected = np.random.choice(
-                len(filenames),
-                patches_count_max,
-                replace=False,
-                p=data[:, 1] / data[:, 1].sum(),
-            )
-            data = data[selected, :]
-            filenames = [filenames[i] for i in selected]
-        return [filenames, data]
+def cluster_patches(blocks_df, model):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    blocks_df["clean_patches_relation"] = blocks_df.patches_relation.apply(
-        clean_patches_relation
-    )
-    blocks_df["patches_count"] = blocks_df.clean_patches_relation.apply(
-        lambda x: x[1].shape[0]
-    )
-    blocks_df = blocks_df[blocks_df.patches_count > 0]
-    blocks_df = blocks_df.reset_index(drop=True)
+    clusters = []
+    clusters_distance = []
+    for i, row in tqdm(blocks_df.iterrows(), total=len(blocks_df)):
+        filenames = row.filenames
+        dataset = data.SmallPatchesDataset(filenames)
+        dl = DataLoader(dataset, batch_size=500, shuffle=False)
+        clusters.append(utils.get_clusters(dl, model))
+        clusters_distance.append(utils.get_clusters_distances(dl, model))
+
+    blocks_df["clusters"] = clusters
+    blocks_df["clusters_distance"] = clusters_distance
     return blocks_df
 
 
-def get_unique_patches(blocks_df):
-    patches_blocks = {}
-    for i, row in blocks_df.iterrows():
-        relation_list = row.clean_patches_relation[0]
-        idx = row.clean_patches_relation[1][:, 0]
-        files = [f"{relation_list[j]}_{int(idx[j])}" for j in range(len(idx))]
-        for file in files:
-            if file in patches_blocks.keys():
-                patches_blocks[file].append(i)
-            else:
-                patches_blocks[file] = [i]
-    return patches_blocks
-
-
-def get_model(k):
+def get_model(latent_dim, k, method):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = models.AutoEncoderResnetExtractor(dims=[2048, 1024, 256, 128])
-    model_dec = models.DEC(n_clusters=k, embedding_dim=128, encoder=model.encoder)
-    model_dec.load_state_dict(torch.load(f"../models/.../model.pt"))
+    kmeans = joblib.load(f"../models/AE_extractor_resnet50_64/kmeans_{k}_clusters.pkl")
+    model = models.AutoEncoderResnetExtractor(dims=[2048, 64])
+    model.load_state_dict(torch.load("../models/AE_extractor_resnet50_64/model.pt"))
+    model_dec = models.DEC(
+        n_clusters=k,
+        embedding_dim=64,
+        encoder=model.encoder,
+        cluster_centers=torch.tensor(kmeans.cluster_centers_),
+    )
     model_dec.to(device)
     model_dec.eval()
     return model_dec
@@ -107,32 +80,33 @@ def get_clusters_patches(model, filenames):
     return clusters, clusters_distance
 
 
-def fraction_of_patches_cluster(blocks_df, k, filenames, clusters, patches_blocks):
-    x = np.zeros((blocks_df.shape[0], k))
-    for i, (file, cluster) in enumerate(zip(filenames, clusters)):
-        for b in patches_blocks[file]:
-            x[b, cluster] += 1
-    x_sum = x.sum(axis=1)
-    x = x / x_sum[:, None]
-    x = pd.DataFrame(x, columns=[f"cluster_{i}" for i in range(k)])
-    x = x.loc[:, x.sum(axis=0) > 0]
-    x["count"] = x_sum
-    return x
+def get_fraction_features(blocks_df, k):
+    blocks_df = blocks_df.loc[:, ~blocks_df.columns.str.contains("feature_")]
+    data = np.zeros((blocks_df.shape[0], k))
+    for i, (_, row) in enumerate(blocks_df.iterrows()):
+        clusters = row.clusters
+        x = np.bincount(clusters, minlength=k).astype(float)
+        x /= x.sum()
+        data[i, :] = x
+    data = pd.DataFrame(data, columns=[f"feature_{i}" for i in range(k)])
+    blocks_df = pd.concat(
+        [blocks_df.reset_index(drop=True), data.reset_index(drop=True)], axis=1
+    )
+    return blocks_df
 
 
-def distances_of_patches_cluster(
-    blocks_df, k, filenames, clusters_distances, patches_blocks
-):
-    x = np.zeros((blocks_df.shape[0], k))
-    for i, (file, distances) in enumerate(zip(filenames, clusters_distances)):
-        for b in patches_blocks[file]:
-            x[b, :] += distances
-    x_sum = x.sum(axis=1)
-    x = x / x_sum[:, None]
-    x = pd.DataFrame(x, columns=[f"cluster_{i}" for i in range(k)])
-    x = x.loc[:, x.sum(axis=0) > 0]
-    x["count"] = x_sum
-    return x
+def get_distance_features(blocks_df, k):
+    blocks_df = blocks_df.loc[:, ~blocks_df.columns.str.contains("feature_")]
+    data = np.zeros((blocks_df.shape[0], k))
+    for i, (_, row) in enumerate(blocks_df.iterrows()):
+        clusters_distance = row.clusters_distance
+        x = np.mean(clusters_distance, axis=0)
+        data[i, :] = x
+    data = pd.DataFrame(data, columns=[f"feature_{i}" for i in range(k)])
+    blocks_df = pd.concat(
+        [blocks_df.reset_index(drop=True), data.reset_index(drop=True)], axis=1
+    )
+    return blocks_df
 
 
 def eval(clf, x_train, y_train, x_test, y_test):
@@ -255,5 +229,74 @@ def grid_search_mlp(x_train, y_train, x_test, y_test):
     return eval(best_model, x_train_, y_train_, x_test_, y_test_)
 
 
+def eval_model(model, k):
+    blocks_train, blocks_val, _ = load_blocks_df()  
+    blocks_train = cluster_patches(blocks_train, model)
+    blocks_val = cluster_patches(blocks_val, model) 
+
+    results = []
+    for method in ["fraction", "distance"]:
+        if method == "fraction":
+            blocks_train = get_fraction_features(blocks_train, k)
+            blocks_val = get_fraction_features(blocks_val, k)
+        elif method == "distance":
+            blocks_train = get_distance_features(blocks_train, k)
+            blocks_val = get_distance_features(blocks_val, k)
+
+        columns = blocks_train.columns.str.contains("feature_")
+        x_train = blocks_train.loc[:, columns].values
+        x_val = blocks_val.loc[:, columns].values
+        for target in ["mhi", "density", "ed_attain"]:
+            y_train = blocks_train[target].values   
+            y_val = blocks_val[target].values
+            r2_train, r2_val, mae_train, mae_val = grid_search_mlp(
+                x_train, y_train, x_val, y_val
+            )
+            results.append(
+                {
+                    "method": method,
+                    "target": target,
+                    "r2_train": r2_train,
+                    "r2_val": r2_val,
+                    "mae_train": mae_train,
+                    "mae_val": mae_val,
+                }
+            )
+    return pd.DataFrame(results)
+
+
+
 if __name__ == "__main__":
-    ...
+    blocks_train, blocks_val, blocks_test = load_blocks_df(patches_count_max=100)
+    blocks_train = blocks_train.sample(1000)
+    blocks_val = blocks_val.sample(100)
+    blocks_test = blocks_test.sample(100)
+
+    latent_dim = 64
+    for k in [20, 50, 100, 200]:
+        print(k)
+        model = get_model(latent_dim, k, method="kmeans")
+        blocks_train = cluster_patches(blocks_train, model)
+        blocks_val = cluster_patches(blocks_val, model)
+
+        for method in ["fraction", "distance"]:
+            print(method)
+            if method == "fraction":
+                blocks_train = get_fraction_features(blocks_train, k)
+                blocks_val = get_fraction_features(blocks_val, k)
+            elif method == "distance":
+                blocks_train = get_distance_features(blocks_train, k)
+                blocks_val = get_distance_features(blocks_val, k)
+
+            for target in ["mhi", "density", "ed_attain"]:
+                print(target)
+                x_train = blocks_train.loc[
+                    :, blocks_train.columns.str.contains("feature_")
+                ].values
+                y_train = blocks_train[target].values
+                x_val = blocks_val.loc[
+                    :, blocks_val.columns.str.contains("feature_")
+                ].values
+                y_val = blocks_val[target].values
+
+                print(grid_search_rf(x_train, y_train, x_val, y_val))
