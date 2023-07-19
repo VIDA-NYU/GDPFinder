@@ -58,6 +58,18 @@ def get_clusters(loader, model, device = None):
     clusters = clusters.argmax(axis=1)
     return clusters
 
+def get_clusters_distances(loader, model, device = None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    distances = []
+    with torch.no_grad():
+        for batch in loader:
+            batch = batch.to(device)
+            distance = model.centroids_distance(batch)
+            distances.append(distance.cpu().detach().numpy())
+    distances = np.concatenate(distances, axis=0)
+    return distances
+
 
 def cluster_embeddings(embeddings, n_clusters):
     cl = KMeans(n_clusters=n_clusters, n_init=20).fit(embeddings)
