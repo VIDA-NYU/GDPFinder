@@ -45,41 +45,6 @@ def cluster_patches(blocks_df, model):
     return blocks_df
 
 
-def get_model(latent_dim, k, method):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    kmeans = joblib.load(f"../models/AE_extractor_resnet50_64/kmeans_{k}_clusters.pkl")
-    model = models.AutoEncoderResnetExtractor(dims=[2048, 64])
-    model.load_state_dict(torch.load("../models/AE_extractor_resnet50_64/model.pt"))
-    model_dec = models.DEC(
-        n_clusters=k,
-        embedding_dim=64,
-        encoder=model.encoder,
-        cluster_centers=torch.tensor(kmeans.cluster_centers_),
-    )
-    model_dec.to(device)
-    model_dec.eval()
-    return model_dec
-
-
-def get_clusters_patches(model, filenames):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset = data.SmallPatchesDataset(filenames)
-    dl = DataLoader(dataset, batch_size=1000, shuffle=False)
-    clusters = []
-    clusters_distance = []
-    with torch.no_grad():
-        for x in dl:
-            x = x.to(device)
-            c = model(x)
-            clusters.append(c.cpu().numpy())
-            d = model.centroids_distance(x)
-            clusters_distance.append(d.cpu().numpy())
-    clusters = np.concatenate(clusters)
-    clusters = clusters.argmax(axis=1)
-    clusters_distance = np.concatenate(clusters_distance)
-    return clusters, clusters_distance
-
-
 def get_fraction_features(blocks_df, k):
     blocks_df = blocks_df.loc[:, ~blocks_df.columns.str.contains("feature_")]
     data = np.zeros((blocks_df.shape[0], k))
@@ -121,11 +86,12 @@ def eval(clf, x_train, y_train, x_test, y_test):
 def grid_search_rf(x_train, y_train, x_test, y_test):
     rf = RandomForestRegressor()
     parameters = {
-        "n_estimators": [10, 100, 1000],
-        "max_depth": [10, 100],
-        # "min_samples_split": [2, 10, 100],
+        "n_estimators": [10, 25, 50],
+        "max_depth": [10, 20, 20],
+        "min_samples_leaf": [1, 5, 10],
+        # "max_features": ["auto", "sqrt", "log2"]
     }
-    clf = GridSearchCV(rf, parameters, n_jobs=-1)
+    clf = GridSearchCV(rf, parameters, n_jobs=-1, verbose=2)
     clf.fit(x_train, y_train)
     return eval(clf, x_train, y_train, x_test, y_test)
 
@@ -230,9 +196,11 @@ def grid_search_mlp(x_train, y_train, x_test, y_test):
 
 
 def eval_model(model, k):
-    blocks_train, blocks_val, _ = load_blocks_df()  
+    print("Evaluation of clustering model")
+    print("Clustering the patches of each block")
+    blocks_train, blocks_val, _ = load_blocks_df()
     blocks_train = cluster_patches(blocks_train, model)
-    blocks_val = cluster_patches(blocks_val, model) 
+    blocks_val = cluster_patches(blocks_val, model)
 
     results = []
     for method in ["fraction", "distance"]:
@@ -247,9 +215,10 @@ def eval_model(model, k):
         x_train = blocks_train.loc[:, columns].values
         x_val = blocks_val.loc[:, columns].values
         for target in ["mhi", "density", "ed_attain"]:
-            y_train = blocks_train[target].values   
+            print(f"Fitting model for {target} with {method} features")
+            y_train = blocks_train[target].values
             y_val = blocks_val[target].values
-            r2_train, r2_val, mae_train, mae_val = grid_search_mlp(
+            r2_train, r2_val, mae_train, mae_val = grid_search_rf(
                 x_train, y_train, x_val, y_val
             )
             results.append(
@@ -263,40 +232,3 @@ def eval_model(model, k):
                 }
             )
     return pd.DataFrame(results)
-
-
-
-if __name__ == "__main__":
-    blocks_train, blocks_val, blocks_test = load_blocks_df(patches_count_max=100)
-    blocks_train = blocks_train.sample(1000)
-    blocks_val = blocks_val.sample(100)
-    blocks_test = blocks_test.sample(100)
-
-    latent_dim = 64
-    for k in [20, 50, 100, 200]:
-        print(k)
-        model = get_model(latent_dim, k, method="kmeans")
-        blocks_train = cluster_patches(blocks_train, model)
-        blocks_val = cluster_patches(blocks_val, model)
-
-        for method in ["fraction", "distance"]:
-            print(method)
-            if method == "fraction":
-                blocks_train = get_fraction_features(blocks_train, k)
-                blocks_val = get_fraction_features(blocks_val, k)
-            elif method == "distance":
-                blocks_train = get_distance_features(blocks_train, k)
-                blocks_val = get_distance_features(blocks_val, k)
-
-            for target in ["mhi", "density", "ed_attain"]:
-                print(target)
-                x_train = blocks_train.loc[
-                    :, blocks_train.columns.str.contains("feature_")
-                ].values
-                y_train = blocks_train[target].values
-                x_val = blocks_val.loc[
-                    :, blocks_val.columns.str.contains("feature_")
-                ].values
-                y_val = blocks_val[target].values
-
-                print(grid_search_rf(x_train, y_train, x_val, y_val))
