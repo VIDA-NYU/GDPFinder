@@ -471,18 +471,19 @@ def create_train_test_df(intersection_threshold = 0.25, patches_count_max = 100)
         filenames = [f"../data/output/patches/{filenames[i]} {int(data[i, 0])}" for i in range(len(filenames))]
         all_filenames.append(filenames)
     blocks_df["filenames"] = all_filenames
-    blocks_df = blocks_df[blocks_df.filenames.apply(len) > 0]
+    blocks_df["n_patches"] = blocks_df.filenames.apply(len)
+    blocks_df = blocks_df[blocks_df.n_patches > 0]
     blocks_df = blocks_df.drop(["patches_relation", "n_scenes", "most_commom_scene"], axis=1)
 
     # split train and test
     train_idx, test_idx = train_test_split(blocks_df.index, test_size=0.15, random_state=42)
     train_idx, val_idx = train_test_split(train_idx, test_size=0.15, random_state=42)
     blocks_df_train = blocks_df.loc[train_idx]
-    blocks_df_train.to_csv("../data/blocks_patches_relation_train.csv", index=False)
+    blocks_df_train.to_csv(f"../data/blocks_patches_relation_train_{patches_count_max}.csv", index=False)
     blocks_df_val = blocks_df.loc[val_idx]
-    blocks_df_val.to_csv("../data/blocks_patches_relation_val.csv", index=False)
+    blocks_df_val.to_csv(f"../data/blocks_patches_relation_val_{patches_count_max}.csv", index=False)
     blocks_df_test = blocks_df.loc[test_idx]
-    blocks_df_test.to_csv("../data/blocks_patches_relation_test.csv", index=False)
+    blocks_df_test.to_csv(f"../data/blocks_patches_relation_test_{patches_count_max}.csv", index=False)
     print(f"Train: {len(train_idx)} Files: {blocks_df_train.n_patches.sum()}")
     print(f"Val: {len(val_idx)} Files: {blocks_df_val.n_patches.sum()}")
     print(f"Test: {len(test_idx)} Files: {blocks_df_test.n_patches.sum()}")
@@ -496,4 +497,6 @@ if __name__ == "__main__":
     # blocks_df["density"] = blocks_df["pop"] / blocks_df["area"]
     # blocks_df.to_file("../data/census_blocks.geojson")
     # compute_blocks_and_patches_relation()
-    create_train_test_df()
+    create_train_test_df(patches_count_max=100)
+    create_train_test_df(patches_count_max=50)
+    create_train_test_df(patches_count_max=10)
