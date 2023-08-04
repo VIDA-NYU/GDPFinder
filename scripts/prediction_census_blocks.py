@@ -18,10 +18,10 @@ import data
 import utils
 
 
-def load_blocks_df():
-    blocks_train = pd.read_csv("../data/blocks_patches_relation_train.csv")
-    blocks_val = pd.read_csv("../data/blocks_patches_relation_val.csv")
-    blocks_test = pd.read_csv("../data/blocks_patches_relation_test.csv")
+def load_blocks_df(patches_count_max = 50):
+    blocks_train = pd.read_csv(f"../data/blocks_patches_relation_train_{patches_count_max}.csv")
+    blocks_val = pd.read_csv(f"../data/blocks_patches_relation_val_{patches_count_max}.csv")
+    blocks_test = pd.read_csv(f"../data/blocks_patches_relation_test_{patches_count_max}.csv")
     blocks_train["filenames"] = blocks_train["filenames"].apply(literal_eval)
     blocks_val["filenames"] = blocks_val["filenames"].apply(literal_eval)
     blocks_test["filenames"] = blocks_test["filenames"].apply(literal_eval)
