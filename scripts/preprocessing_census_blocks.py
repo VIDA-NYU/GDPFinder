@@ -477,7 +477,7 @@ def create_train_test_df(intersection_threshold = 0.25, patches_count_max = 100)
 
     # split train and test
     train_idx, test_idx = train_test_split(blocks_df.index, test_size=0.30, random_state=42)
-    val_idx, test_idx = train_test_split(train_idx, test_size=0.5, random_state=42)
+    val_idx, test_idx = train_test_split(test_idx, test_size=0.5, random_state=42)
     blocks_df_train = blocks_df.loc[train_idx]
     blocks_df_train.to_csv(f"../data/blocks_patches_relation_train_{patches_count_max}.csv", index=False)
     blocks_df_val = blocks_df.loc[val_idx]
