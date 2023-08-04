@@ -11,12 +11,9 @@ from tqdm import tqdm
 
 import data
 import models
-from train import (
-    train_reconstruction,
-    train_clustering,
-    train_reconstruction_feature_extraction,
-)
+import train
 import utils
+import prediction_census_blocks 
 
 
 def varying_clusters_experiment():
@@ -626,17 +623,20 @@ def comparison_with_feature_extractor(latent_dim):
     # Get the embeddings and cluster
     model.eval()
     # embeddings = utils.get_embeddings(dl_train, model.encoder, device)
-    #cluster_centers = torch.tensor(
+    # cluster_centers = torch.tensor(
     #    utils.cluster_embeddings(embeddings, configs["n_clusters"])
-    #)
-    kmeans = KMeans(n_clusters=configs["n_clusters"], random_state=0, n_init=10, verbose=True).fit(
-        embeddings
-    )
+    # )
+    kmeans = KMeans(
+        n_clusters=configs["n_clusters"], random_state=0, n_init=10, verbose=True
+    ).fit(embeddings)
     clusters = kmeans.labels_
     cluster_centers = torch.tensor(kmeans.cluster_centers_)
     model.train()
-    utils.plot_cluster_results(dataset_train, clusters, dir="../models/DEC_resnet50_small_patch_comparison_part1/clusters_kmeans")
-
+    utils.plot_cluster_results(
+        dataset_train,
+        clusters,
+        dir="../models/DEC_resnet50_small_patch_comparison_part1/clusters_kmeans",
+    )
 
     # remove grad from pretraind model
     # model.encoder.lock_weights()
@@ -668,8 +668,11 @@ def comparison_with_feature_extractor(latent_dim):
         dir="../models/DEC_resnet50_small_patch_comparison_part1/",
     )
 
-    utils.plot_cluster_results(dataset_train, clusters, dir="../models/DEC_resnet50_small_patch_comparison_part1/cluster_dec")
-
+    utils.plot_cluster_results(
+        dataset_train,
+        clusters,
+        dir="../models/DEC_resnet50_small_patch_comparison_part1/cluster_dec",
+    )
 
     # Train the Autoencoder with feature extractor
     model = models.AutoEncoderResnetExtractor(
@@ -705,17 +708,20 @@ def comparison_with_feature_extractor(latent_dim):
     # Get the embeddings and cluster
     model.eval()
     # embeddings = utils.get_embeddings(dl_train, model.encoder, device)
-    #cluster_centers = torch.tensor(
+    # cluster_centers = torch.tensor(
     #    utils.cluster_embeddings(embeddings, configs["n_clusters"])
-    #)
-    kmeans = KMeans(n_clusters=configs["n_clusters"], random_state=0, n_init=10, verbose=True).fit(
-        embeddings
-    )
+    # )
+    kmeans = KMeans(
+        n_clusters=configs["n_clusters"], random_state=0, n_init=10, verbose=True
+    ).fit(embeddings)
     clusters = kmeans.labels_
     cluster_centers = torch.tensor(kmeans.cluster_centers_)
     model.train()
-    utils.plot_cluster_results(dataset_train, clusters, dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/clusters_kmeans")
-
+    utils.plot_cluster_results(
+        dataset_train,
+        clusters,
+        dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/clusters_kmeans",
+    )
 
     # Train the DEC with the same encoder
     model_dec = models.DEC(
@@ -730,18 +736,99 @@ def comparison_with_feature_extractor(latent_dim):
     )
 
     clusters = train_clustering(
-        model = model_dec,
-        dl_train = dl_train,
-        dl_test = dl_test,
-        loss = loss,
-        optimizer = optimizer,
-        device = device,
+        model=model_dec,
+        dl_train=dl_train,
+        dl_test=dl_test,
+        loss=loss,
+        optimizer=optimizer,
+        device=device,
         return_clusters=True,
         epochs=configs["epochs_clustering"],
         dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/",
     )
-    utils.plot_cluster_results(dataset_train, clusters, dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/clusters_dec")
+    utils.plot_cluster_results(
+        dataset_train,
+        clusters,
+        dir="../models/DEC_extractor_resnet50_small_patch_comparison_part2/clusters_dec",
+    )
 
+
+def resnet_extractor_experiment(dims, n_clusters=100, train_ae = True, train_dec = True):
+    dl_train, dl_val, _ = data.generate_datasets(
+        patches_count_max=10, batch_size=96
+    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = models.AutoEncoderResnetExtractor(
+        dims=dims, denoising=True
+    ).to(device)
+    if train_ae:
+        embeddings = train.train_reconstruction_feature_extraction(
+            model,
+            dl_train,
+            dl_val,
+            epochs=5,
+            return_embeddings=True,
+            dir=f"../models/AE_extractor_resnet50_{str (dims)}/",
+        )
+    else:
+        model.load_state_dict(
+            torch.load(f"../models/AE_extractor_resnet50_{str(dims)}/model.pt")
+        )
+        model.eval()
+        #embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+    
+    if train_dec:
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init=10).fit(embeddings)
+        clusters = kmeans.labels_
+        joblib.dump(kmeans, f"../models/AE_extractor_resnet50_{str(dims)}/kmeans_{n_clusters}_clusters.pkl")
+        utils.plot_cluster_results(
+            dl_train.dataset,
+            clusters,
+            dir=f"../models/AE_extractor_resnet50_{str(dims)}/kmeans_{n_clusters}_clusters",
+        )
+        centers = torch.tensor(kmeans.cluster_centers_)
+        model_dec = models.DEC(
+            n_clusters=n_clusters,
+            embedding_dim=dims[-1],
+            encoder=model.encoder,
+            cluster_centers=centers,
+        ).to(device)
+        results = prediction_census_blocks.eval_model(model_dec, n_clusters)
+        results.to_csv(f"../models/AE_extractor_resnet50_{str(dims)}/results_{n_clusters}_clusters.csv")
+
+        clusters = train.train_clustering(
+            model_dec,
+            dl_train,
+            dl_val,
+            epochs=5,
+            dir=f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/",
+        )
+        utils.plot_cluster_results(
+            dl_train.dataset,
+            clusters,
+            dir=f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/dec_{n_clusters}_clusters",
+        )
+        results = prediction_census_blocks.eval_model(model_dec, n_clusters)
+        results.to_csv(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/results_{n_clusters}_clusters.csv")
+    else:
+        kmeans = joblib.load(f"../models/AE_extractor_resnet50_{str(dims)}/kmeans_{n_clusters}_clusters.pkl")
+        centers = torch.tensor(kmeans.cluster_centers_)
+        model_dec = models.DEC(
+            n_clusters=n_clusters,
+            embedding_dim=dims[-1],
+            encoder=model.encoder,
+            cluster_centers=centers,
+        ).to(device)
+        results = prediction_census_blocks.eval_model(model_dec, n_clusters)
+        results.to_csv(f"../models/AE_extractor_resnet50_{str(dims)}/results_{n_clusters}_clusters.csv")
+        model_dec.load_state_dict(
+            torch.load(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/model.pt")
+        )
+        model.to(device)
+        results = prediction_census_blocks.eval_model(model_dec, n_clusters)
+        results.to_csv(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/results_{n_clusters}_clusters.csv")
+
+   
 
 if __name__ == "__main__":
     np.random.seed(42)
@@ -757,4 +844,7 @@ if __name__ == "__main__":
     # long_experiment()
     # long_experiment_extractor(64)
     # varying_clusters_extractor(64)
-    comparison_with_feature_extractor(256)
+    #comparison_with_feature_extractor(256)
+    #resnet_extractor_experiment(64, 200)
+    resnet_extractor_experiment([2048, 512, 128, 64], 100, True, True)
+    #resnet_extractor_experiment(64, 20)
