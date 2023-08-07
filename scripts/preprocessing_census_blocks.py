@@ -4,6 +4,7 @@ import geopandas as gpd
 import requests
 from sklearn.neighbors import KDTree
 from tqdm import tqdm
+import glob
 import shapely
 import os
 from ast import literal_eval
@@ -323,7 +324,8 @@ def get_patches_inside_blocks(patches, blocks):
     for i, row in tqdm(blocks.iterrows(), total=blocks.shape[0]):
         block_area = row["geometry"].area
         # estimate a good number of neighbors to search for
-        k = int(max(5, min(block_area // patch_area, patches.shape[0] / 5)))
+        k = min(125, 1.25 * block_area// patch_area)
+        k = int(k) if k > 5 else 5
         # verify if it intersects the k closest patches
         centroid = np.array(row["geometry"].centroid.coords).reshape(1, 2)
         idx_closest = tree.query(centroid, k=k)[1][0]
@@ -395,8 +397,9 @@ def compute_blocks_and_patches_relation():
         city_df = gpd.read_file("../data/scenes_metadata/" + city_shp)
         city_state = city_shp.replace("_last_scenes.geojson", "")
 
-        # keep only blocks inside city
-        is_in_city = blocks_df.geometry.intersects(city_df.unary_union)
+        # keep only totally inside city
+        #is_in_city = blocks_df.geometry.intersects(city_df.unary_union)
+        is_in_city = blocks_df.geometry.within(city_df.unary_union)
         blocks_of_city = blocks_df[is_in_city]
 
         # get patches of the city
@@ -418,9 +421,10 @@ def compute_blocks_and_patches_relation():
         relation = get_patches_inside_blocks(patches_of_city, blocks_of_city)
 
         blocks_df.loc[is_in_city, "patches_relation"] = relation
+        # add city state name
+        blocks_df.loc[is_in_city, "city_state"] = city_state
         # remove geometry and save to csv
         blocks_df.drop("geometry", axis=1).to_csv("../data/blocks_patches_relation.csv")
-        # blocks_df.to_file("../data/census_blocks_patches_v3.geojson")
 
 def create_train_test_df(intersection_threshold = 0.25, patches_count_max = 100):
     blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
@@ -428,6 +432,7 @@ def create_train_test_df(intersection_threshold = 0.25, patches_count_max = 100)
     blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(lambda x : np.nan if x == "{}" else x)
     blocks_df = blocks_df.dropna() 
     blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(literal_eval)
+    blocks_df["city_state"] = blocks_df.patches_relation.apply(lambda x : list(x.keys())[0].split("/")[0])
     blocks_df["n_patches"] = blocks_df["patches_relation"].apply(len)
       
     def get_n_scenes(x):
