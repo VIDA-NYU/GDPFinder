@@ -309,26 +309,28 @@ def get_blocks_df():
 
 
 def get_patches_inside_blocks(patches, blocks):
-    patches = patches.to_crs("epsg:3395")
-    blocks = blocks.to_crs("epsg:3395")
+    patches["x_min"] = patches.geometry.apply(lambda x: x.bounds[0])
+    patches["x_max"] = patches.geometry.apply(lambda x: x.bounds[2])
+    patches["y_min"] = patches.geometry.apply(lambda x: x.bounds[1])
+    patches["y_max"] = patches.geometry.apply(lambda x: x.bounds[3])
 
-    # build tree with patches centers
-    patches_centers = np.stack(
-        patches.geometry.apply(lambda x: np.array(x.centroid.coords)).values
-    ).squeeze()
-    tree = KDTree(patches_centers)
 
     patch_area = patches.area.mean()
     relation = []
     # for each patch
     for i, row in tqdm(blocks.iterrows(), total=blocks.shape[0]):
-        block_area = row["geometry"].area
-        # estimate a good number of neighbors to search for
-        k = min(125, 1.25 * block_area// patch_area)
-        k = int(k) if k > 5 else 5
-        # verify if it intersects the k closest patches
-        centroid = np.array(row["geometry"].centroid.coords).reshape(1, 2)
-        idx_closest = tree.query(centroid, k=k)[1][0]
+        block_bbox = row["geometry"].bounds
+        # get idx of patches outside the bbox
+        idx_outside = (
+            (patches.x_min > block_bbox[2])
+            | (patches.x_max < block_bbox[0])
+            | (patches.y_min > block_bbox[3])
+            | (patches.y_max < block_bbox[1])
+        )
+        idx_inside = ~idx_outside
+        idx_closest = np.arange(len(patches))[idx_inside]
+
+        # calculate intersection with closest patches
         intersection_ratio = (
             patches.iloc[idx_closest].geometry.intersection(row.geometry).area
             / patch_area
