@@ -439,30 +439,22 @@ def compute_blocks_and_patches_relation():
         )
         
 
-    blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
-    blocks_df["mhi"] = blocks_df["mhi"].apply(lambda x: np.nan if x < 0 else x)
-    blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(lambda x : np.nan if x == "{}" else x)
-    blocks_df = blocks_df.dropna() 
-    blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(literal_eval)
-    blocks_df["city_state"] = blocks_df.patches_relation.apply(lambda x : list(x.keys())[0].split("/")[0])
-    blocks_df["n_patches"] = blocks_df["patches_relation"].apply(len)
-      
-    def get_n_scenes(x):
-        return len(set([f.split("/")[1].split("_")[0] for f in x.keys()]))
-    def get_most_commom_scene(x):
-        scenes_id = [f.split("/")[1].split("_")[0] for f in x.keys()]
-        u, c = np.unique(scenes_id, return_counts=True)
-        return u[np.argmax(c)]
 
-    blocks_df["n_scenes"] = blocks_df.patches_relation.apply(get_n_scenes)
-    blocks_df["most_commom_scene"] = blocks_df.patches_relation.apply(get_most_commom_scene)
-    for i, row in blocks_df.iterrows():
-        blocks_df.at[i, "patches_relation"] = {k: v for k, v in row.patches_relation.items() if k.split("/")[1].split("_")[0] == row.most_commom_scene}
-    blocks_df.n_patches = blocks_df.patches_relation.apply(len)
+def create_train_test_df(intersection_threshold=0.25, patches_count_max=100):
+    blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
+    blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(
+        lambda x: np.nan if x == "{}" or x == "" else x
+    )
+    blocks_df = blocks_df.dropna()
+    blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(literal_eval)
+    blocks_df["city_state"] = blocks_df.patches_relation.apply(
+        lambda x: list(x.keys())[0].split("/")[0]
+    )
+    blocks_df["n_patches"] = blocks_df["patches_relation"].apply(len)
     blocks_df = blocks_df[blocks_df.n_patches > 0]
     print(f"Total of {blocks_df.shape[0]} blocks")
 
-    # filter patches based on intersection threshold and max number of patches
+    # filter patches too keep a max number of patches
     all_filenames = []
     for i, row in tqdm(blocks_df.iterrows(), total=blocks_df.shape[0]):
         s = row.patches_relation
@@ -471,7 +463,7 @@ def compute_blocks_and_patches_relation():
         # transform test into array, filtering by intersection threshold
         for key, value in s.items():
             value = np.array(value)
-            value = value[value[:, 1] > intersection_threshold, :]
+            value = value[value[:, 1] > 0, :] # remove blocks that have intersection lower than 0.001
             for i in range(len(value)):
                 filenames.append(key)
                 data.append(value[i, :])
@@ -485,25 +477,40 @@ def compute_blocks_and_patches_relation():
             )
             data = data[selected, :]
             filenames = [filenames[i] for i in selected]
-        filenames = [f"../data/output/patches/{filenames[i]} {int(data[i, 0])}" for i in range(len(filenames))]
+        filenames = [
+            f"../data/output/patches/{filenames[i]} {int(data[i, 0])}"
+            for i in range(len(filenames))
+        ]
         all_filenames.append(filenames)
     blocks_df["filenames"] = all_filenames
     blocks_df["n_patches"] = blocks_df.filenames.apply(len)
     blocks_df = blocks_df[blocks_df.n_patches > 0]
-    blocks_df = blocks_df.drop(["patches_relation", "n_scenes", "most_commom_scene"], axis=1)
+
+    print(f"Total of {blocks_df.shape[0]} blocks after filtering patches")
+
+    blocks_df = blocks_df.drop(["patches_relation"], axis=1)
 
     # split train and test
-    train_idx, test_idx = train_test_split(blocks_df.index, test_size=0.30, random_state=42)
+    train_idx, test_idx = train_test_split(
+        blocks_df.index, test_size=0.30, random_state=42
+    )
     val_idx, test_idx = train_test_split(test_idx, test_size=0.5, random_state=42)
     blocks_df_train = blocks_df.loc[train_idx]
-    blocks_df_train.to_csv(f"../data/blocks_patches_relation_train_{patches_count_max}.csv", index=False)
+    blocks_df_train.to_csv(
+        f"../data/blocks_patches_relation_train_{patches_count_max}.csv", index=False
+    )
     blocks_df_val = blocks_df.loc[val_idx]
-    blocks_df_val.to_csv(f"../data/blocks_patches_relation_val_{patches_count_max}.csv", index=False)
+    blocks_df_val.to_csv(
+        f"../data/blocks_patches_relation_val_{patches_count_max}.csv", index=False
+    )
     blocks_df_test = blocks_df.loc[test_idx]
-    blocks_df_test.to_csv(f"../data/blocks_patches_relation_test_{patches_count_max}.csv", index=False)
+    blocks_df_test.to_csv(
+        f"../data/blocks_patches_relation_test_{patches_count_max}.csv", index=False
+    )
     print(f"Train: {len(train_idx)} Files: {blocks_df_train.n_patches.sum()}")
     print(f"Val: {len(val_idx)} Files: {blocks_df_val.n_patches.sum()}")
     print(f"Test: {len(test_idx)} Files: {blocks_df_test.n_patches.sum()}")
+
 
 if __name__ == "__main__":
     # census_df = request_census_data()
