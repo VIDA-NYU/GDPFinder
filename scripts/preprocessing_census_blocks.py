@@ -388,47 +388,57 @@ def split_patches_df(patches_df):
 
 def compute_blocks_and_patches_relation():
     blocks_df = gpd.read_file("../data/census_blocks.geojson")
+    blocks_df = blocks_df.to_crs("EPSG:3395")
 
-    # get name of cities shapefiles
-    cities_shp = os.listdir("../data/scenes_metadata/")
-    cities_shp = [s for s in cities_shp if s.endswith(".geojson")]
+    # clean blocks based in other variables
+    blocks_df["mhi"] = blocks_df["mhi"].apply(lambda x: np.nan if x < 0 else x)
+    blocks_df = blocks_df.dropna()
+    print(f"Computing intersection of tiles with {len(blocks_df)} blocks")
+
+    # get cities shapefiles
+    cities_shp = glob.glob("../data/scenes_metadata/*.geojson")
+
+    # start patches relation column
     blocks_df["patches_relation"] = ""
 
     # going to compare patches and blocks separated by city for better computing time
     for city_shp in cities_shp:
-        city_df = gpd.read_file("../data/scenes_metadata/" + city_shp)
-        city_state = city_shp.replace("_last_scenes.geojson", "")
-
-        # keep only totally inside city
-        #is_in_city = blocks_df.geometry.intersects(city_df.unary_union)
-        is_in_city = blocks_df.geometry.within(city_df.unary_union)
-        blocks_of_city = blocks_df[is_in_city]
-
-        # get patches of the city
-        patches_of_city = os.listdir("../data/output/patches/" + city_state)
-        patches_of_city = [s for s in patches_of_city if s.endswith(".geojson")]
-        patches_of_city = gpd.GeoDataFrame(
-            pd.concat(
-                [
-                    gpd.read_file("../data/output/patches/" + city_state + "/" + s)
-                    for s in patches_of_city
-                ]
-            )
+        city_df = gpd.read_file(city_shp)
+        city_df = city_df.to_crs("EPSG:3395")
+        city_state = city_shp.split("/")[-1].replace("_last_scenes.geojson", "")
+        
+        # keep only blocks that are totally inside at least one tile
+        blocks_covering = blocks_df.apply(
+            lambda x: city_df.intersection(x.geometry).area / x.geometry.area,
+            axis=1,
         )
+        blocks_covering = blocks_covering.max(axis=1)
+        blocks_of_city = blocks_df[blocks_covering >= 1]
+
+        # load patches of the city
+        patches_of_city = glob.glob(
+            "../data/output/patches/" + city_state + "/*.geojson"
+        )
+        patches_of_city = gpd.GeoDataFrame(
+            pd.concat([gpd.read_file(s) for s in patches_of_city])
+        )
+        patches_of_city = patches_of_city.to_crs("EPSG:3395")
         patches_of_city["patche_filename"] = (
             city_state + "/" + patches_of_city.patche_filename
         )
         patches_of_city = split_patches_df(patches_of_city)
+       
         # run function that identify the relation between them
         relation = get_patches_inside_blocks(patches_of_city, blocks_of_city)
 
-        blocks_df.loc[is_in_city, "patches_relation"] = relation
-        # add city state name
-        blocks_df.loc[is_in_city, "city_state"] = city_state
+        blocks_df.loc[blocks_covering >= 1, "patches_relation"] = relation
+        blocks_df.loc[blocks_covering >= 1, "city_state"] = city_state
         # remove geometry and save to csv
-        blocks_df.drop("geometry", axis=1).to_csv("../data/blocks_patches_relation.csv")
+        blocks_df.drop("geometry", axis=1).to_csv(
+            "../data/blocks_patches_relation.csv"
+        )
+        
 
-def create_train_test_df(intersection_threshold = 0.25, patches_count_max = 100):
     blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
     blocks_df["mhi"] = blocks_df["mhi"].apply(lambda x: np.nan if x < 0 else x)
     blocks_df["patches_relation"] = blocks_df["patches_relation"].apply(lambda x : np.nan if x == "{}" else x)
