@@ -452,6 +452,15 @@ def create_train_test_df(intersection_threshold=0.25, patches_count_max=100):
     )
     blocks_df["n_patches"] = blocks_df["patches_relation"].apply(len)
     blocks_df = blocks_df[blocks_df.n_patches > 0]
+    def get_most_commom_scene(x):
+        scenes_id = [f.split("/")[1].split("_")[0] for f in x.keys()]
+        u, c = np.unique(scenes_id, return_counts=True)
+        return u[np.argmax(c)]
+    blocks_df["most_commom_scene"] = blocks_df.patches_relation.apply(get_most_commom_scene)
+    for i, row in blocks_df.iterrows():
+        blocks_df.at[i, "patches_relation"] = {k: v for k, v in row.patches_relation.items() if k.split("/")[1].split("_")[0] == row.most_commom_scene}
+    blocks_df.n_patches = blocks_df.patches_relation.apply(len)
+
     print(f"Total of {blocks_df.shape[0]} blocks")
 
     # filter patches too keep a max number of patches
