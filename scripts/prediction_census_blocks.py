@@ -93,7 +93,8 @@ def grid_search_rf(x_train, y_train, x_test, y_test):
     }
     clf = GridSearchCV(rf, parameters, n_jobs=-1, verbose=2)
     clf.fit(x_train, y_train)
-    return eval(clf, x_train, y_train, x_test, y_test)
+    r2_train, r2_test, mae_train, mae_test = eval(clf, x_train, y_train, x_test, y_test)
+    return r2_train, r2_test, mae_train, mae_test, clf
 
 
 class MLP(nn.Module):
@@ -198,29 +199,35 @@ def grid_search_mlp(x_train, y_train, x_test, y_test):
 def eval_model(model, k):
     print("Evaluation of clustering model")
     print("Clustering the patches of each block")
-    blocks_train, blocks_val, _ = load_blocks_df()
+    blocks_train, blocks_val, blocks_test = load_blocks_df()
     blocks_train = cluster_patches(blocks_train, model)
     blocks_val = cluster_patches(blocks_val, model)
+    blocks_test = cluster_patches(blocks_test, model)
 
     results = []
     for method in ["fraction", "distance"]:
         if method == "fraction":
             blocks_train = get_fraction_features(blocks_train, k)
             blocks_val = get_fraction_features(blocks_val, k)
+            blocks_test = get_fraction_features(blocks_test, k)
         elif method == "distance":
             blocks_train = get_distance_features(blocks_train, k)
             blocks_val = get_distance_features(blocks_val, k)
+            blocks_test = get_distance_features(blocks_test, k)
 
         columns = blocks_train.columns.str.contains("feature_")
         x_train = blocks_train.loc[:, columns].values
         x_val = blocks_val.loc[:, columns].values
+        x_test = blocks_test.loc[:, columns].values
         for target in ["mhi", "density", "ed_attain"]:
             print(f"Fitting model for {target} with {method} features")
             y_train = blocks_train[target].values
             y_val = blocks_val[target].values
-            r2_train, r2_val, mae_train, mae_val = grid_search_rf(
+            y_test = blocks_test[target].values
+            r2_train, r2_val, mae_train, mae_val, clf = grid_search_rf(
                 x_train, y_train, x_val, y_val
             )
+            r2_test, mae_test, _, _ = eval(clf, x_test, y_test, x_test, y_test)
             results.append(
                 {
                     "method": method,
@@ -229,6 +236,8 @@ def eval_model(model, k):
                     "r2_val": r2_val,
                     "mae_train": mae_train,
                     "mae_val": mae_val,
+                    "r2_test": r2_test,
+                    "mae_test": mae_test,
                 }
             )
     return pd.DataFrame(results)
