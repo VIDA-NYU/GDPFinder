@@ -753,9 +753,26 @@ def comparison_with_feature_extractor(latent_dim):
     )
 
 
+def train_ae_extractor(dims):
+    dl_train, dl_val, _ = data.generate_datasets(
+        patches_count_max=50, batch_size=256
+    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = models.AutoEncoderResnetExtractor(
+        dims=dims, denoising=True
+    ).to(device)
+    train.train_reconstruction_feature_extraction(
+        model,
+        dl_train,
+        dl_val,
+        epochs=5,
+        dir=f"../models/AE_extractor_resnet50_{str (dims)}/",
+    )
+
+
 def resnet_extractor_experiment(dims, n_clusters=100, train_ae = True, train_dec = True):
     dl_train, dl_val, _ = data.generate_datasets(
-        patches_count_max=10, batch_size=96
+        patches_count_max=50, batch_size=256
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = models.AutoEncoderResnetExtractor(
@@ -775,7 +792,7 @@ def resnet_extractor_experiment(dims, n_clusters=100, train_ae = True, train_dec
             torch.load(f"../models/AE_extractor_resnet50_{str(dims)}/model.pt")
         )
         model.eval()
-        #embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+        embeddings = utils.get_embeddings(dl_train, model.encoder, device)
     
     if train_dec:
         kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init=10).fit(embeddings)
@@ -846,5 +863,13 @@ if __name__ == "__main__":
     # varying_clusters_extractor(64)
     #comparison_with_feature_extractor(256)
     #resnet_extractor_experiment(64, 200)
-    resnet_extractor_experiment([2048, 512, 128, 64], 100, True, True)
+    #resnet_extractor_experiment([2048, 512, 128, 64], 100, True, True)
     #resnet_extractor_experiment(64, 20)
+
+    #train_ae_extractor([2048, 512, 128, 64])
+    resnet_extractor_experiment([2048, 512, 128, 64], 100, False, True)
+    resnet_extractor_experiment([2048, 512, 128, 64], 50, False, True)
+    resnet_extractor_experiment([2048, 512, 128, 64], 20, False, True)
+    #train_ae_extractor([2048, 512, 128, 32])
+    #train_ae_extractor([2048, 512, 128, 10])
+    
