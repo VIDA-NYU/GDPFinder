@@ -43,11 +43,11 @@ def train_kmeans_dec(dims, n_clusters):
     model.load_state_dict(torch.load(f"../models/AE_extractor_resnet50_{str(dims)}/model.pt"))
     embeddings = np.load(f"../models/AE_extractor_resnet50_{str(dims)}/embeddings_train.npy")
 
+    dir=f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/"
     os.makedirs(dir, exist_ok=True)
 
     # kmeans
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init=10).fit(embeddings)
-    dir=f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/",
     joblib.dump(kmeans, f"../models/AE_extractor_resnet50_{str(dims)}/kmeans_{n_clusters}_clusters.pkl")
 
     # dec
@@ -144,9 +144,9 @@ def resnet_extractor_experiment(dims, n_clusters=100, train_ae = True, train_dec
 
 if __name__ == "__main__":
     np.random.seed(42)
-    train_auto_encoder_extractor([2048, 512, 128, 64])
-    train_auto_encoder_extractor([2048, 512, 128, 32])
-    train_auto_encoder_extractor([2048, 512, 128, 10])
+    #train_auto_encoder_extractor([2048, 512, 128, 64])
+    #train_auto_encoder_extractor([2048, 512, 128, 32])
+    #train_auto_encoder_extractor([2048, 512, 128, 10])
 
     for latent_dim in [64, 32, 10]:
         for k in [100, 50, 20]:
