@@ -48,7 +48,7 @@ def train_kmeans_dec(dims, n_clusters):
 
     # kmeans
     kmeans = KMeans(n_clusters=n_clusters, random_state=0, n_init=10).fit(embeddings)
-    joblib.dump(kmeans, f"../models/AE_extractor_resnet50_{str(dims)}/kmeans_{n_clusters}_clusters.pkl")
+    joblib.dump(kmeans, f"../models/DEC_extractor_resnet50_{str(dims)}/kmeans_{n_clusters}_clusters.pkl")
 
     # dec
     model_dec = models.DEC(
