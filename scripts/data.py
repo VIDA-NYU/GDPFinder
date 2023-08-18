@@ -1,28 +1,10 @@
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-import os
 from ast import literal_eval
 from PIL import Image
 import torch
 from torchvision import transforms
-
-
-class PatchesDataset(torch.utils.data.Dataset):
-    def __init__(self, filenames, resize=None):
-        self.filenames = filenames
-        self.preprocess = [transforms.ToTensor()]
-        if resize is not None:
-            self.preprocess.append(transforms.Resize(resize))
-        self.preprocess = transforms.Compose(self.preprocess)
-
-    def __len__(self):
-        return len(self.filenames)
-
-    def __getitem__(self, idx):
-        img = Image.open(self.filenames[idx])
-        img = self.preprocess(img)
-        return img
 
 
 class SmallPatchesDataset(torch.utils.data.Dataset):
@@ -45,49 +27,6 @@ class SmallPatchesDataset(torch.utils.data.Dataset):
         img = img.crop((column * 112, row * 112, (column + 1) * 112, (row + 1) * 112))
         img = self.preprocess(img)
         return img
-
-
-def get_filenames(n):
-    cities_folders = os.listdir("../data/output/patches")
-    filenames = []
-    for city_folder in cities_folders:
-        patches_files = os.listdir("../data/output/patches/" + city_folder)
-        patches_files = [
-            f"../data/output/patches/{city_folder}/{p}"
-            for p in patches_files
-            if p.endswith(".png")
-        ]
-        if len(patches_files) > n:
-            patches_files = np.random.choice(
-                patches_files, size=n, replace=False
-            ).tolist()
-        filenames += patches_files
-
-    np.random.shuffle(filenames)
-    return filenames
-
-
-def get_filenames_small_patches(n):
-    cities_folders = os.listdir("../data/output/patches")
-    filenames = []
-    for city_folder in cities_folders:
-        patches_files = os.listdir("../data/output/patches/" + city_folder)
-        patches_files = [
-            f"../data/output/patches/{city_folder}/{p}"
-            for p in patches_files
-            if p.endswith(".png")
-        ]
-        if len(patches_files) > n:
-            patches_files = np.random.choice(
-                patches_files, size=n, replace=False
-            ).tolist()
-        filenames += patches_files
-
-    np.random.shuffle(filenames)
-    filenames = np.repeat(filenames, 4)
-    filenames = np.array([filenames[i] + f" {i % 4}" for i in range(len(filenames))])
-    return filenames
-
 
 def get_filenames_center_blocks(intersection_threshold=0.25, patches_count_max=50):
     blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
