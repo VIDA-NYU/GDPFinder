@@ -18,16 +18,6 @@ import data
 import utils
 
 
-def load_blocks_df(patches_count_max = 50):
-    blocks_train = pd.read_csv(f"../data/blocks_patches_relation_train_{patches_count_max}.csv")
-    blocks_val = pd.read_csv(f"../data/blocks_patches_relation_val_{patches_count_max}.csv")
-    blocks_test = pd.read_csv(f"../data/blocks_patches_relation_test_{patches_count_max}.csv")
-    blocks_train["filenames"] = blocks_train["filenames"].apply(literal_eval)
-    blocks_val["filenames"] = blocks_val["filenames"].apply(literal_eval)
-    blocks_test["filenames"] = blocks_test["filenames"].apply(literal_eval)
-    return blocks_train, blocks_val, blocks_test
-
-
 def cluster_patches(blocks_df, model):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -97,109 +87,10 @@ def grid_search_rf(x_train, y_train, x_test, y_test):
     return r2_train, r2_test, mae_train, mae_test, clf
 
 
-class MLP(nn.Module):
-    def __init__(self, dims):
-        super(MLP, self).__init__()
-        self.layers = []
-        for in_dim, out_dim in zip(dims[:-1], dims[1:]):
-            self.layers.append(nn.Linear(in_dim, out_dim))
-            if out_dim != dims[-1]:
-                self.layers.append(nn.ReLU())
-        self.layers = nn.Sequential(*self.layers)
-
-    def forward(self, x):
-        return self.layers(x)
-
-    def predict(self, x):
-        device = (
-            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        )
-        self.eval()
-        if type(x) == pd.DataFrame:
-            x_ = torch.from_numpy(x.values)
-        elif type(x) == np.ndarray:
-            x_ = torch.from_numpy(x)
-
-        with torch.no_grad():
-            x_ = x_.to(device)
-            y = self.layers(x_)
-            return y.detach().cpu().numpy()
-
-
-def train_mlp(model, dl_train, dl_test):
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.MSELoss()
-    test_loss = []
-    for i in range(100):
-        iter_loss = 0
-        for x, y in dl_train:
-            x, y = x.to(device), y.to(device)
-            y_pred = model(x)
-            loss = criterion(y_pred, y)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            iter_loss += loss.item()
-
-        if i % 3 == 0:
-            iter_loss = 0
-            with torch.no_grad():
-                for x, y in dl_test:
-                    x, y = x.to(device), y.to(device)
-                    y_pred = model(x)
-                    loss = criterion(y_pred, y)
-                    iter_loss += loss.item()
-                test_loss.append(iter_loss)
-
-            if i > 10 and test_loss[-1] > test_loss[-2]:
-                break
-
-
-def grid_search_mlp(x_train, y_train, x_test, y_test):
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    idx_train_, idx_val = train_test_split(
-        np.arange(x_train.shape[0]), test_size=0.2, random_state=0
-    )
-    x_val_, y_val_ = x_train.values[idx_val, :], y_train[idx_val]
-    x_train_, y_train_ = x_train.values[idx_train_, :], y_train[idx_train_]
-    x_test_, y_test_ = x_test.values, y_test
-    scaler = StandardScaler()
-    x_train_ = scaler.fit_transform(x_train_)
-    x_val_ = scaler.transform(x_val_)
-    x_test_ = scaler.transform(x_test_)
-    dl_train_ = DataLoader(
-        TensorDataset(torch.tensor(x_train_), torch.tensor(y_train_.reshape(-1, 1))),
-        batch_size=128,
-    )
-    dl_val = DataLoader(
-        TensorDataset(torch.tensor(x_val_), torch.tensor(y_val_).reshape(-1, 1)),
-        batch_size=128,
-    )
-
-    best_r2 = -np.inf
-    best_model = None
-    for dims in [
-        [x_train.shape[1], 32, 64, 32, 1],
-        [x_train.shape[1], 64, 256, 32, 1],
-        [x_train.shape[1], 64, 512, 128, 1],
-    ]:
-        model_1 = MLP(dims)
-        model_1.to(device, dtype=torch.double)
-        train_mlp(model_1, dl_train_, dl_val)
-        r2_train, r2_test = eval(model_1, x_train_, y_train_, x_val_, y_val_)
-
-        if r2_test > best_r2:
-            best_r2 = r2_test
-            best_model = model_1
-
-    return eval(best_model, x_train_, y_train_, x_test_, y_test_)
-
-
 def eval_model(model, k):
     print("Evaluation of clustering model")
     print("Clustering the patches of each block")
-    blocks_train, blocks_val, blocks_test = load_blocks_df()
+    blocks_train, blocks_val, blocks_test = data.generate_dataframes()
     blocks_train = cluster_patches(blocks_train, model)
     blocks_val = cluster_patches(blocks_val, model)
     blocks_test = cluster_patches(blocks_test, model)
