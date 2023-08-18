@@ -28,47 +28,8 @@ class SmallPatchesDataset(torch.utils.data.Dataset):
         img = self.preprocess(img)
         return img
 
-def get_filenames_center_blocks(intersection_threshold=0.25, patches_count_max=50):
-    blocks_df = pd.read_csv("../data/blocks_patches_relation.csv")
-    blocks_df["mhi"] = blocks_df["mhi"].apply(lambda x: np.nan if x < 0 else x)
-    blocks_df = blocks_df.dropna()
-    blocks_df.patches_relation = blocks_df.patches_relation.apply(literal_eval)
-    blocks_df["n_patches"] = blocks_df.patches_relation.apply(len)
-    blocks_df = blocks_df[blocks_df.n_patches > 0]
 
-    all_filenames = []
-    for i, row in tqdm(blocks_df.iterrows(), total=len(blocks_df)):
-        filenames = []
-        data = []
-        s = row.patches_relation
-        for key, value in s.items():
-            value = np.array(value)
-            value = value[value[:, 1] > intersection_threshold, :]
-            for i in range(len(value)):
-                data.append(value[i, :])
-                filenames.append(key)
-        data = np.array(data)
-
-        if len(filenames) > patches_count_max:
-            selected = np.random.choice(
-                len(filenames),
-                size=patches_count_max,
-                replace=False,
-                p=data[:, 1] / data[:, 1].sum(),
-            )
-            data = data[selected, :]
-            filenames = [filenames[i] for i in selected]
-        all_filenames.extend(
-            [
-                f"../data/output/patches/{filenames[i]} {int(data[i, 0])}"
-                for i in range(len(filenames))
-            ]
-        )
-
-    np.random.shuffle(all_filenames)
-    return all_filenames
-
-def generate_datasets( 
+def generate_dataloaders( 
         patches_count_max=50,
         batch_size = 96,
     ):
@@ -96,3 +57,13 @@ def generate_datasets(
     )
 
     return dl_train, dl_val, dl_test
+
+
+def generate_dataframes(patches_count_max = 50):
+    blocks_train = pd.read_csv(f"../data/blocks_patches_relation_train_{patches_count_max}.csv")
+    blocks_val = pd.read_csv(f"../data/blocks_patches_relation_val_{patches_count_max}.csv")
+    blocks_test = pd.read_csv(f"../data/blocks_patches_relation_test_{patches_count_max}.csv")
+    blocks_train["filenames"] = blocks_train["filenames"].apply(literal_eval)
+    blocks_val["filenames"] = blocks_val["filenames"].apply(literal_eval)
+    blocks_test["filenames"] = blocks_test["filenames"].apply(literal_eval)
+    return blocks_train, blocks_val, blocks_test
