@@ -4,10 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.preprocessing import StandardScaler
-from ast import literal_eval
-import joblib
+from sklearn.model_selection import GridSearchCV
 from tqdm import tqdm
 
 import torch.nn as nn
@@ -118,7 +115,7 @@ def eval_model(model, k):
             r2_train, r2_val, mae_train, mae_val, clf = grid_search_rf(
                 x_train, y_train, x_val, y_val
             )
-            r2_test, mae_test, _, _ = eval(clf, x_test, y_test, x_test, y_test)
+            r2_test, _, mae_test, _ = eval(clf, x_test, y_test, x_test, y_test)
             results.append(
                 {
                     "method": method,
