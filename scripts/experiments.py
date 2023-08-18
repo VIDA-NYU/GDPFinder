@@ -59,7 +59,7 @@ def train_kmeans_dec(dims, n_clusters):
     model_dec.eval()
     for ds_name, df in [("train", blocks_train), ("val", blocks_val), ("test", blocks_test)]:
         df = prediction_census_blocks.cluster_patches(df, model_dec)
-        df.to_csv(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/kmeans_clusters_{ds_name}.csv")
+        df.to_pickle(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/blocks_{ds_name}_kmeans_{n_clusters}.pkl")
 
     # dec
     model_dec.train()
@@ -73,7 +73,7 @@ def train_kmeans_dec(dims, n_clusters):
     model_dec.eval()
     for ds_name, df in [("train", blocks_train), ("val", blocks_val), ("test", blocks_test)]:
         df = prediction_census_blocks.cluster_patches(df, model_dec)
-        df.to_csv(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/clusters_{ds_name}.csv")
+        df.to_pickle(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/blocks_{ds_name}_dec_{n_clusters}.pkl")
 
 if __name__ == "__main__":
     np.random.seed(42)
