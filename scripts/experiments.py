@@ -26,6 +26,9 @@ def train_auto_encoder_extractor(dims):
         epochs=5,
         dir=f"../models/AE_extractor_resnet50_{str (dims)}/",
     )
+    model.eval()
+    embeddings = utils.get_embeddings(dl_train, model.encoder, device)
+    np.save(f"../models/AE_extractor_resnet50_{str(dims)}/embeddings_train.npy", embeddings)
 
 
 def resnet_extractor_experiment(dims, n_clusters=100, train_ae = True, train_dec = True):
