@@ -78,20 +78,16 @@ def grid_search_rf(x_train, y_train, x_test, y_test):
         "min_samples_leaf": [1, 5, 10],
         # "max_features": ["auto", "sqrt", "log2"]
     }
-    clf = GridSearchCV(rf, parameters, n_jobs=-1, verbose=2)
+    clf = GridSearchCV(rf, parameters, n_jobs=-1)
     clf.fit(x_train, y_train)
     r2_train, r2_test, mae_train, mae_test = eval(clf, x_train, y_train, x_test, y_test)
     return r2_train, r2_test, mae_train, mae_test, clf
 
 
-def eval_model(model, k):
+def eval_model(blocks_train, blocks_val, blocks_test, k):
     print("Evaluation of clustering model")
     print("Clustering the patches of each block")
-    blocks_train, blocks_val, blocks_test = data.generate_dataframes()
-    blocks_train = cluster_patches(blocks_train, model)
-    blocks_val = cluster_patches(blocks_val, model)
-    blocks_test = cluster_patches(blocks_test, model)
-
+   
     results = []
     for method in ["fraction", "distance"]:
         if method == "fraction":
