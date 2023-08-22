@@ -1,6 +1,7 @@
 import os
 import torch
 import numpy as np
+import pandas as pd
 from sklearn.cluster import KMeans
 import joblib
 
@@ -75,18 +76,55 @@ def train_kmeans_dec(dims, n_clusters):
         df = prediction_census_blocks.cluster_patches(df, model_dec)
         df.to_pickle(f"../models/DEC_extractor_resnet50_{str(dims)}_{n_clusters}/blocks_{ds_name}_dec_{n_clusters}.pkl")
 
+def train_regression(dims, k):
+    # loading census blocks
+    census = pd.read_csv("../data/crop_filenames.csv")
+    census["data"] = census["Filename"].apply(lambda x : x.split(".ti")[0].split("_"))
+    census = census["data"].apply(pd.Series)
+    census.columns = ['state', 'county', 'tract', 'block group', "density", "mhi", "ed_attain"]
+    for col in census.columns:
+        census[col] = census[col].astype(float)
+    for col in ['state', 'county', 'tract', 'block group']:
+        census[col] = census[col].astype(int)
+
+    # with kmeans
+    blocks_train = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_train_kmeans_{k}.pkl")
+    blocks_val = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_val_kmeans_{k}.pkl")
+    blocks_test = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_test_kmeans_{k}.pkl")
+    for d in [blocks_train, blocks_val, blocks_test]:
+        d = d.drop(columns = ["mhi", "area", "year", "ed_attain", "density"])
+        d = pd.merge(d, census, on = ['state', 'county', 'tract', 'block group'])
+    results, clf = prediction_census_blocks.eval_model(blocks_train, blocks_val, blocks_test, k)
+
+    results.to_csv(f"../models/DEC_extractor_resnet50_{dims}_{k}/result_regression_kmeans_{k}.csv")
+    joblib.dump(clf, f"../models/DEC_extractor_resnet50_{str(dims)}_{k}/regression_kmeans_{k}.pkl")
+
+
+    # with dec
+    blocks_train = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_train_dec_{k}.pkl")
+    blocks_val = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_val_dec_{k}.pkl")
+    blocks_test = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_test_dec_{k}.pkl")
+    for d in [blocks_train, blocks_val, blocks_test]:
+        d = d.drop(columns = ["mhi", "area", "year", "ed_attain", "density"])
+        d = pd.merge(d, census, on = ['state', 'county', 'tract', 'block group'])
+    results, clf = prediction_census_blocks.eval_model(blocks_train, blocks_val, blocks_test, k)
+ 
+    results.to_csv(f"../models/DEC_extractor_resnet50_{dims}_{k}/result_regression_dec_{k}.csv")
+    joblib.dump(clf, f"../models/DEC_extractor_resnet50_{str(dims)}_{k}/regression_dec_{k}.pkl")
+
+
+
+
 if __name__ == "__main__":
     np.random.seed(42)
-    #train_auto_encoder_extractor([2048, 512, 128, 64])
-    #train_auto_encoder_extractor([2048, 512, 128, 32])
-    #train_auto_encoder_extractor([2048, 512, 128, 10])
+    # train_auto_encoder_extractor([2048, 512, 128, 64])
+    # train_auto_encoder_extractor([2048, 512, 128, 32])
+    # train_auto_encoder_extractor([2048, 512, 128, 10])
 
-    for latent_dim in [64, 32, 10]:
+    #for latent_dim in [32]:#, 64, 10]: #already run with 32 and 64
+    #    for k in [100, 50, 20]:
+    #        train_kmeans_dec([2048, 512, 128, latent_dim], k)
+    
+    for latent_dim in [32, 64]:
         for k in [100, 50, 20]:
-            train_kmeans_dec([2048, 512, 128, latent_dim], k)
-    
-    # resnet_extractor_experiment([2048, 512, 128, 64], 100, False, True)
-    # resnet_extractor_experiment([2048, 512, 128, 64], 50, False, True)
-    # resnet_extractor_experiment([2048, 512, 128, 64], 20, False, True)
-    
-    
+            train_regression([2048, 512, 128, latent_dim], k)
