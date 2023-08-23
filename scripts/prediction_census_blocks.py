@@ -73,21 +73,17 @@ def eval(clf, x_train, y_train, x_test, y_test):
 def grid_search_rf(x_train, y_train, x_test, y_test):
     rf = RandomForestRegressor()
     parameters = {
-        "n_estimators": [10, 25, 50],
-        "max_depth": [10, 20, 20],
+        "n_estimators": [25, 50, 100],
+        "max_depth": [10, 20, 50],
         "min_samples_leaf": [1, 5, 10],
-        # "max_features": ["auto", "sqrt", "log2"]
     }
-    clf = GridSearchCV(rf, parameters, n_jobs=-1)
+    clf = GridSearchCV(rf, parameters, n_jobs=-1, cv = 3)
     clf.fit(x_train, y_train)
     r2_train, r2_test, mae_train, mae_test = eval(clf, x_train, y_train, x_test, y_test)
     return r2_train, r2_test, mae_train, mae_test, clf
 
 
-def eval_model(blocks_train, blocks_val, blocks_test, k):
-    print("Evaluation of clustering model")
-    print("Clustering the patches of each block")
-   
+def eval_model(blocks_train, blocks_val, blocks_test, k):   
     results = []
     for method in ["fraction", "distance"]:
         if method == "fraction":
@@ -103,8 +99,8 @@ def eval_model(blocks_train, blocks_val, blocks_test, k):
         x_train = blocks_train.loc[:, columns].values
         x_val = blocks_val.loc[:, columns].values
         x_test = blocks_test.loc[:, columns].values
-        for target in ["mhi", "density", "ed_attain"]:
-            print(f"Fitting model for {target} with {method} features")
+
+        for target in tqdm(["mhi", "density", "ed_attain"]):
             y_train = blocks_train[target].values
             y_val = blocks_val[target].values
             y_test = blocks_test[target].values
@@ -122,6 +118,7 @@ def eval_model(blocks_train, blocks_val, blocks_test, k):
                     "mae_val": mae_val,
                     "r2_test": r2_test,
                     "mae_test": mae_test,
+                    "best_params": clf.best_params_
                 }
             )
     return pd.DataFrame(results)
