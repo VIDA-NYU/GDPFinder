@@ -17,15 +17,15 @@ import utils
 
 def cluster_patches(blocks_df, model):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    clusters = []
-    clusters_distance = []
-    for i, row in tqdm(blocks_df.iterrows(), total=len(blocks_df)):
-        filenames = row.filenames
-        dataset = data.SmallPatchesDataset(filenames)
-        dl = DataLoader(dataset, batch_size=500, shuffle=False)
-        clusters.append(utils.get_clusters(dl, model))
-        clusters_distance.append(utils.get_clusters_distances(dl, model))
+    
+    filenames = [f for l in blocks_df.filenames.tolist() for f in l]
+    dataset = data.SmallPatchesDataset(filenames)
+    dl = DataLoader(dataset, batch_size=500, shuffle=False)
+    clusters = utils.get_clusters(dl, model)
+    clusters_distance = utils.get_clusters_distances(dl, model)
+    n_files = blocks_df.filenames.apply(len).tolist()
+    clusters = np.split(clusters, np.cumsum(n_files)[:-1])
+    clusters_distance = np.split(clusters_distance, np.cumsum(n_files)[:-1])
 
     blocks_df["clusters"] = clusters
     blocks_df["clusters_distance"] = clusters_distance
@@ -85,7 +85,7 @@ def grid_search_rf(x_train, y_train, x_test, y_test):
 
 def eval_model(blocks_train, blocks_val, blocks_test, k):   
     results = []
-    for method in ["fraction", "distance"]:
+    for method in ["fraction"]:#, "distance"]: #testing not using distance TEMPORARY
         if method == "fraction":
             blocks_train = get_fraction_features(blocks_train, k)
             blocks_val = get_fraction_features(blocks_val, k)
