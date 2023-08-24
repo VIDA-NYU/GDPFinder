@@ -167,5 +167,5 @@ cython_debug/
 # Data and plots
 data/
 figures/
-installs/
 saved_models/
+installs/

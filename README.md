@@ -1,7 +1,17 @@
-# GDPFinder
+# UrbanSat (GDPFinder)
 
-## Data
+## For the supervised approach:
 
-Non-image data at:
+notebooks/supervised_approach.ipynb contains data (census and satellite imagery) preparation and analysis. Testing saved models and interpreting results is also contained in the notebook.
 
-https://drive.google.com/drive/folders/1WbKt4mdKG9iuXxExjc_Wqxvs6j1s6wYj?usp=share_link
+### Example usage to train a model:
+
+Within scripts directory:
+
+```
+$ nohup python -u supervised_training.py --metric 'density' --imagetype 'resize' --newwidth 1234 --newheight 1234
+```
+
+See supervised_training.py for more details on the arguments and training process.
+
+In supervised_approach.ipynb and supervised_training.py, the dataset is generated from scripts/create_dataset.py and the model from scripts/supervised_models.py
