@@ -94,11 +94,8 @@ def train_regression(dims, k):
     for d in [blocks_train, blocks_val, blocks_test]:
         d = d.drop(columns = ["mhi", "area", "year", "ed_attain", "density"])
         d = pd.merge(d, census, on = ['state', 'county', 'tract', 'block group'])
-    results, clf = prediction_census_blocks.eval_model(blocks_train, blocks_val, blocks_test, k)
-
+    results = prediction_census_blocks.eval_model(blocks_train, blocks_val, blocks_test, k)
     results.to_csv(f"../models/DEC_extractor_resnet50_{dims}_{k}/result_regression_kmeans_{k}.csv")
-    joblib.dump(clf, f"../models/DEC_extractor_resnet50_{str(dims)}_{k}/regression_kmeans_{k}.pkl")
-
 
     # with dec
     blocks_train = pd.read_pickle(f"../models/DEC_extractor_resnet50_{dims}_{k}/blocks_train_dec_{k}.pkl")
@@ -107,12 +104,8 @@ def train_regression(dims, k):
     for d in [blocks_train, blocks_val, blocks_test]:
         d = d.drop(columns = ["mhi", "area", "year", "ed_attain", "density"])
         d = pd.merge(d, census, on = ['state', 'county', 'tract', 'block group'])
-    results, clf = prediction_census_blocks.eval_model(blocks_train, blocks_val, blocks_test, k)
- 
+    results = prediction_census_blocks.eval_model(blocks_train, blocks_val, blocks_test, k)
     results.to_csv(f"../models/DEC_extractor_resnet50_{dims}_{k}/result_regression_dec_{k}.csv")
-    joblib.dump(clf, f"../models/DEC_extractor_resnet50_{str(dims)}_{k}/regression_dec_{k}.pkl")
-
-
 
 
 if __name__ == "__main__":
@@ -125,6 +118,3 @@ if __name__ == "__main__":
     #    for k in [100, 50, 20]:
     #        train_kmeans_dec([2048, 512, 128, latent_dim], k)
     
-    for latent_dim in [32, 64]:
-        for k in [100, 50, 20]:
-            train_regression([2048, 512, 128, latent_dim], k)
