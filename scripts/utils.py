@@ -1,9 +1,10 @@
 import os
 import numpy as np
+from tqdm import tqdm
 import torch
 from torchvision import transforms
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
+from openTSNE import TSNE
 from sklearn.cluster import KMeans
 
 
@@ -14,20 +15,42 @@ def get_embeddings(loader, model, device):
     Inputs:
         loader: torch.utils.data.DataLoader
     """
+    print("Generating embeddings...")
     embeddings = []
     with torch.no_grad():
-        for batch, _ in loader:
+        for batch in tqdm(loader):
             batch = batch.to(device)
-            embedding = model(batch)[0]
+            embedding = model(batch)
             embeddings.append(embedding.cpu().detach().numpy())
     embeddings = np.concatenate(embeddings, axis=0)
     return embeddings
 
 
-def get_clusters(loader, model, device):
+def proj_embeddings(embeddings):
+    tsne = TSNE(
+        perplexity=250,
+        metric="euclidean",
+        n_jobs=32,
+        random_state=42,
+        n_iter=1000,
+    )
+    proj = tsne.fit(embeddings[:100000, :])
+    proj = proj.prepare_partial(embeddings)
+    for i in range(2):
+        proj[:, i] -= proj[:, i].min()
+        proj[:, i] /= proj[:, i].max()
+        proj[:, i] *= 2
+        proj[:, i] -= 1
+
+    return proj
+
+
+def get_clusters(loader, model, device = None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     clusters = []
     with torch.no_grad():
-        for batch, _ in loader:
+        for batch in loader:
             batch = batch.to(device)
             cluster = model(batch)
             clusters.append(cluster.cpu().detach().numpy())
@@ -35,35 +58,25 @@ def get_clusters(loader, model, device):
     clusters = clusters.argmax(axis=1)
     return clusters
 
+def get_clusters_distances(loader, model, device = None):
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    distances = []
+    with torch.no_grad():
+        for batch in loader:
+            batch = batch.to(device)
+            distance = model.centroids_distance(batch)
+            distances.append(distance.cpu().detach().numpy())
+    distances = np.concatenate(distances, axis=0)
+    return distances
+
 
 def cluster_embeddings(embeddings, n_clusters):
     cl = KMeans(n_clusters=n_clusters, n_init=20).fit(embeddings)
     return cl.cluster_centers_
 
 
-def plot_embedding_proj(embeddings, labels=None, dir=None):
-    """
-    Plot the latent space using t-SNE, color based on the clusters.
-
-    Inputs:
-        embeddings - np.array of shape (n_samples, n_features)
-        labels - np.array of shape (n_samples, )
-        dir - str, directory to save the plot
-    """
-
-    embeddings_proj = TSNE(n_components=2).fit_transform(embeddings)
-
-    if labels is None:
-        labels = np.zeros(embeddings.shape[0])
-    plt.scatter(embeddings_proj[:, 0], embeddings_proj[:, 1], c=labels, cmap="tab10")
-    if dir is not None:
-        plt.savefig(dir)
-        plt.close()
-    else:
-        plt.show()
-
-
-def plot_loss_curve(losses_log, dir=None):
+def plot_loss_curve(train_losses_log, test_losses_log=None, dir=None):
     """
     Plot the loss curve.
 
@@ -71,10 +84,13 @@ def plot_loss_curve(losses_log, dir=None):
         loss - list or numpy array (n_epochs, )
         dir - str, directory to save the plot
     """
-    plt.plot(losses_log)
+    plt.plot(train_losses_log, label="Training")
+    if test_losses_log is not None:
+        plt.plot(test_losses_log, label="Test")
+        plt.legend()
     plt.ylabel("Iter loss")
     plt.xlabel("Epoch")
-    plt.title("Training loss")
+    plt.title("Loss")
     if dir is not None:
         plt.savefig(dir)
         plt.close()
@@ -82,36 +98,28 @@ def plot_loss_curve(losses_log, dir=None):
         plt.show()
 
 
-def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
-    # inv_normalize = transforms.Normalize(
-    #    mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],
-    #    std=[1/0.229, 1/0.224, 1/0.225]
-    # )
-
-    imgs = []
+def plot_reconstruction(image, reconstruction, n_samples=5, dir=None):
+    images = []
     reconstructions = []
-    k = 0
-    for batch, _ in dl:
-        for j in range(batch.shape[0]):
-            img = batch[j].unsqueeze(0)
-            imgs.append(img.cpu().detach().numpy())
-            img = img.to(device)
-            reconstruction = model(img)[1]
-            # reconstruction = inv_normalize(reconstruction)
-            reconstructions.append(reconstruction.cpu().detach().numpy())
-            k += 1
-            if k == n_samples:
-                break
-        if k == n_samples:
-            break
+    idx = np.random.choice(image.shape[0], n_samples, replace=False)
+    for i in idx:
+        images.append(image[idx].cpu().detach().numpy())
+        reconstructions.append(reconstruction[idx].cpu().detach().numpy())
 
-    imgs = np.concatenate(imgs, axis=0)
+    images = np.concatenate(images, axis=0)
     reconstructions = np.concatenate(reconstructions, axis=0)
 
-    fig, axs = plt.subplots(nrows=n_samples, ncols=2, figsize=(10, 10))
+    fig, axs = plt.subplots(nrows=n_samples, ncols=2, figsize=(4, 15))
     for i in range(n_samples):
-        axs[i, 0].imshow(imgs[i].transpose(1, 2, 0))
-        axs[i, 1].imshow(reconstructions[i].transpose(1, 2, 0))
+        img_ = images[i].transpose(1, 2, 0)
+        img_ = np.clip(img_, 0, 1)
+        rec_ = reconstructions[i].transpose(1, 2, 0)
+        rec_ = np.clip(rec_, 0, 1)
+
+        axs[i, 0].imshow(img_)
+        axs[i, 1].imshow(rec_)
+        axs[i, 0].set_axis_off()
+        axs[i, 1].set_axis_off()
     if dir is not None:
         plt.savefig(dir)
         plt.close()
@@ -120,34 +128,57 @@ def plot_reconstruction(model, dl, device, n_samples=10, dir=None):
 
 
 def save_reconstruction_results(
-    mode, losses_log, batches_log, dl, model, device, dir=None
+    model,
+    train_losses_log,
+    train_batch_losses_log,
+    test_losses_log,
+    image,
+    reconstruction,
+    dir=None,
 ):
     # verify if the directory exists
     if dir is not None and not os.path.exists(dir):
         os.mkdir(dir)
 
-    plot_loss_curve(losses_log, dir=dir + "loss_curve.png")
-    plot_loss_curve(batches_log, dir=dir + "batch_loss_curve.png")
-    if mode == "cluster":
-        #embeddings = get_embeddings(dl, model.encoder, device)
-        embeddings = []
-        labels = []
-        with torch.no_grad():
-            for batch, _ in dl:
-                batch = batch.to(device)
-                embedding = model.encoder(batch)
-                label = model(batch)
-                embeddings.append(embedding.cpu().detach().numpy())
-                labels.append(label.cpu().detach().numpy())
-        embeddings = np.concatenate(embeddings, axis=0)
-        embeddings = embeddings.reshape(embeddings.shape[0], -1)
-        labels = np.concatenate(labels, axis=0)
-        labels = labels.argmax(axis=1)
-        #labels = get_clusters(dl, model, device)
-        plot_embedding_proj(embeddings, labels=labels, dir=dir + "embedding.png")
-    elif mode == "reconstruction":
-        embeddings = get_embeddings(dl, model, device)
-        embeddings = embeddings.reshape(embeddings.shape[0], -1)
-        plot_embedding_proj(embeddings, dir=dir + "embedding.png")
-        plot_reconstruction(model, dl, device, dir=dir + "reconstruction.png")
+    plot_loss_curve(train_losses_log, test_losses_log, dir=dir + "loss_curve.png")
+    plot_loss_curve(train_batch_losses_log, dir=dir + "batch_loss_curve.png")
     torch.save(model.state_dict(), dir + "model.pt")
+    if reconstruction.ndim == 4:
+        plot_reconstruction(image, reconstruction, dir=dir + "reconstruction.png")
+
+
+def save_clustering_results(
+    model, train_losses_log, train_batch_losses_log, test_losses_log, dir=None
+):
+    # verify if the directory exists
+    if dir is not None and not os.path.exists(dir):
+        os.mkdir(dir)
+
+    plot_loss_curve(train_losses_log, test_losses_log, dir=dir + "loss_curve.png")
+    plot_loss_curve(train_batch_losses_log, dir=dir + "batch_loss_curve.png")
+    torch.save(model.state_dict(), dir + "model.pt")
+
+
+def plot_cluster_results(dataset, clusters, dir = None):
+    #if dir is not None and not os.path.exists(dir):
+    #    os.mkdir(dir)
+    k = len(np.unique(clusters))
+    ncols = 5
+    nrows = k // ncols + (k % ncols > 0)
+    fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(3 * ncols, 3 * nrows))
+    axs = axs.flatten()
+    [ax.set_axis_off() for ax in axs]
+
+    for i in range(k):
+        idx = np.where(clusters == i)[0]
+        idx = np.random.choice(idx, min(9, len(idx)), replace=False)
+        img = np.ones((112*3, 112*3, 3))
+        for j in range(len(idx)):
+            img_ = dataset[idx[j]].numpy().transpose(1, 2, 0)
+            img[j // 3 * 112:(j // 3 + 1) * 112, j % 3 * 112:(j % 3 + 1) * 112] = img_
+        axs[i].imshow(img)
+    if dir is not None:
+        plt.savefig(dir + ".png")
+        plt.close()
+    else:
+        plt.show()
