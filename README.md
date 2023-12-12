@@ -1,4 +1,4 @@
-# Granularity at Scale
+# Granularity at Scale: Estimating Neighborhood Socioeconomic Indicators from High-Resolution Orthographic Imagery and Hybrid Learning
 
 Paper: https://doi.org/10.48550/arXiv.2309.16808
 
