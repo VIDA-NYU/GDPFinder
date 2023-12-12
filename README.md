@@ -1,4 +1,6 @@
-# UrbanSat Project (aka GDPFinder)
+# Granularity at Scale
+
+Paper: [Granularity at Scale: Estimating Neighborhood Socioeconomic Indicators from High-Resolution Orthographic Imagery and Hybrid Learning](https://doi.org/10.48550/arXiv.2309.16808)
 
 ## For the supervised approach:
 
@@ -9,7 +11,7 @@ notebooks/supervised_approach.ipynb contains data (census and satellite imagery)
 Within scripts directory:
 
 ```
-$ nohup python -u supervised_training.py --metric 'density' --imagetype 'resize' --newwidth 1234 --newheight 1234
+$ nohup python -u supervised_training.py --metric 'density' --imagetype 'resize' --newwidth 1234 --newheight 1234 &
 ```
 
 See supervised_training.py for more details on the arguments and training process.
