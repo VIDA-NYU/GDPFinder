@@ -1,4 +1,6 @@
-# UrbanSat Project (aka GDPFinder)
+# Granularity at Scale
+
+Paper: https://doi.org/10.48550/arXiv.2309.16808
 
 ## For the supervised approach:
 
